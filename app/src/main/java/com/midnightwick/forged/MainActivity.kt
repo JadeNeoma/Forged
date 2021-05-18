@@ -1,3 +1,4 @@
+// Copyright
 package com.midnightwick.forged
 
 import androidx.appcompat.app.AppCompatActivity
