@@ -19,14 +19,65 @@ package com.midnightwick.forged
 
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
+import android.view.View
+import androidx.fragment.app.Fragment
+import android.widget.ArrayAdapter
+import android.widget.Spinner
 
 class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
+        val system = getSystem()
+
+        // Fill Spinners
+        val spinner: Spinner = this.findViewById(R.id.spinnerA1)
+        if (spinner != null) {
+            val adapter = ArrayAdapter<String>(
+                this,
+                android.R.layout.simple_spinner_item, system.listSkills()
+            )
+            spinner.setAdapter(adapter)
+
+        }
+    }
+
+    private fun getSystem(): System { // TODO: Create System Saving, export, import, and retrieval
+        val system = createSystem()
+        return system
+    }
+
+    fun createSystem(): System { // Creation of new system
+        val system = System( // test system, delete before release TODO: Add actual creation system
+            "testSystem",
+            listOf(Skill("testSkill", arrayOf(arrayOf(0, 1)), 0))
+        )
+        return system
+    }
+
+}
+
+class Skill( // Skill class made for use inside a list, they will normally be addressed by the list index
+    public val name: String,
+    anchors: Array<Array<Int>>, // All Skills need at least 3 anchors in order to be properly mapped
+    exp: Int = 0 // experience level of the skill
+) {
+    fun propagate(ratio: Int) {
+        // TODO: add propagation system
     }
 }
 
-class Skill(
+class System(
+    name: String,
+    private val skills: List<Skill>
+) {
 
-)
+    fun listSkills(): Array<String> { // Convert list of skill names into an array for use
+        val skillNames = arrayListOf<String>()
+        for (i in skills.indices) {
+            val skill = skills[i]
+            skillNames.add(skill.name)
+        }
+        return skillNames.toTypedArray()
+    }
+}
