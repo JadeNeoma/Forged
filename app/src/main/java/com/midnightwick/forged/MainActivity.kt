@@ -19,16 +19,18 @@ package com.midnightwick.forged
 
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
-import android.view.View
-import androidx.fragment.app.Fragment
 import android.widget.ArrayAdapter
 import android.widget.Spinner
 
 class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
+        println("elephant")
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
+
         val system = getSystem()
+        println(system.calcMod(0))
+        println("Tiger")
 
         // Fill Spinners
         val spinner: Spinner = this.findViewById(R.id.spinnerA1)
@@ -50,7 +52,8 @@ class MainActivity : AppCompatActivity() {
     fun createSystem(): System { // Creation of new system
         val system = System( // test system, delete before release TODO: Add actual creation system
             "testSystem",
-            listOf(Skill("testSkill", arrayOf(arrayOf(0, 1)), 0))
+            listOf(Skill("testSkill", 123), Skill("testSkill", arrayOf(arrayOf(0, 1)), 0)),
+            50
         )
         return system
     }
@@ -59,17 +62,15 @@ class MainActivity : AppCompatActivity() {
 
 class Skill( // Skill class made for use inside a list, they will normally be addressed by the list index
     public val name: String,
-    anchors: Array<Array<Int>>, // All Skills need at least 3 anchors in order to be properly mapped
-    exp: Int = 0 // experience level of the skill
-) {
-    fun propagate(ratio: Int) {
-        // TODO: add propagation system
-    }
-}
+    // anchors: Array<Array<Int>>, // All Skills need at least 3 anchors in order to be properly mapped
+    public var exp: Int = 0 // experience level of the skill
+)
 
 class System(
     name: String,
-    private val skills: List<Skill>
+    private val skills: List<Skill>,
+    per: Int
+    // TODO: Create table of all skill links and function to auto update table
 ) {
 
     fun listSkills(): Array<String> { // Convert list of skill names into an array for use
@@ -79,5 +80,10 @@ class System(
             skillNames.add(skill.name)
         }
         return skillNames.toTypedArray()
+    }
+
+    fun calcMod(skill: Int): Int { // Calculates modifier for dice roll, based on a percentile roll
+        val exp = skills[skill].exp
+        return 0 - (exp / 20) // Modifier is negative and subtracted from overall roll
     }
 }
