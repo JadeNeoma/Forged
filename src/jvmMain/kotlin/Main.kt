@@ -66,7 +66,7 @@ fun NewSystemDialog(){
                 )
 
             Button(
-                content = {Text("Create System")},
+                content = {Text("Create System!")},
                 onClick = {createNew(systemName)},
                 modifier = Modifier
                     .align(Alignment.CenterHorizontally)
