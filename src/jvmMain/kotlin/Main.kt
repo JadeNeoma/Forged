@@ -75,7 +75,7 @@ fun NewSystemDialog(){
 
             Button(
                 content = {Text("Create System!")},
-                onClick = {createNew(systemName)},
+                onClick = {createNew(systemName, authorName)},
                 modifier = Modifier
                     .align(Alignment.CenterHorizontally)
             )
@@ -83,8 +83,9 @@ fun NewSystemDialog(){
     }
 }
 
-fun createNew(systemName:String){
-
+@Composable
+fun createNew(systemName: String, authorName: String){
+    App(TTRPG(systemName, authorName))
 }
 
 fun main() = application {
@@ -159,19 +160,18 @@ class Anchor(
 
 class Web(
     var name: String,
-    var anchors: MutableList<Anchor>,
     anchor0: String,
     anchor1: String,
     anchor2: String
 ){
-    init{
-        val default : Array<Array<Double>> = arrayOf(
-            arrayOf(0.0, 433.013),
-            arrayOf(500.0, -433.013),
-            arrayOf(-500.0, 433.013) )
-        anchors.add(Anchor(anchor0, default[0][0], default[0][1]))
-        anchors.add(Anchor(anchor1, default[1][0], default[1][1]))
-        anchors.add(Anchor(anchor2, default[2][0], default[2][1]))
+    var anchors: MutableList<Anchor> =
+        mutableListOf(
+            Anchor(anchor0, 0.0, 433.013),
+            Anchor(anchor1, 500.0, -433.013),
+            Anchor(anchor2, -500.0, -433.013) )
+
+    public fun createAnchor() {
+
     }
 
 
@@ -183,7 +183,7 @@ class Web(
 class TTRPG(
     var name: String,
     var author: String,
-    var webs: MutableList<Web>
+    var webs: MutableList<Web> = mutableListOf()
 ){
     init {
         val created = System.currentTimeMillis()
@@ -192,7 +192,5 @@ class TTRPG(
     override fun toString(): String {
         return "name: $name\n author: $author\n Webs:\n $webs "
     }
-
-
 
 }
