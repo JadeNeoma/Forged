@@ -25,7 +25,6 @@
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.Button
@@ -39,6 +38,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
@@ -48,6 +48,7 @@ import androidx.compose.ui.window.WindowPosition
 import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberDialogState
 
+@ExperimentalComposeUiApi
 fun main() = application {
     var winTitle by remember { mutableStateOf("") }
     var ttrpg by remember { mutableStateOf(TTRPG("", "")) }
@@ -57,6 +58,7 @@ fun main() = application {
     ) {
         var isNewDialogOpen by remember { mutableStateOf(false) }
         var isCopyrightDialogOpen by remember { mutableStateOf(false) }
+        var isNewWebDialogOpen by remember { mutableStateOf(false) }
         var notImplemented by remember { mutableStateOf(false) }
         var isLoaded by remember { mutableStateOf(false) }
         var systemName by remember { mutableStateOf("Example System") }
@@ -74,9 +76,7 @@ fun main() = application {
 
             if (isLoaded) {
                 Menu("Edit") {
-                    Item("Create Web", onClick = {
-                        ttrpg.webs.add(Web("", "", "", ""))
-                    })
+                    Item("Create Web", onClick = { isNewWebDialogOpen = true })
                 }
             }
 
@@ -120,16 +120,84 @@ fun main() = application {
                 }
             }
 
+            if (isNewWebDialogOpen) {
+                Dialog(
+                    title = "${ttrpg.name}: New Web",
+                    onCloseRequest = { isNewWebDialogOpen = false },
+                    state = rememberDialogState(
+                        position = WindowPosition(Alignment.Center),
+                        400.dp, 450.dp
+                    ),
+                    resizable = true,
+                ) {
+                    var submit by remember { mutableStateOf(false) }
+                    var webName by remember { mutableStateOf("Example Web") }
+                    var anchor0 by remember { mutableStateOf("Anchor 0") }
+                    var anchor1 by remember { mutableStateOf("Anchor 1") }
+                    var anchor2 by remember { mutableStateOf("Anchor 2") }
+                    Box(modifier = Modifier.padding(50.dp)) {
+                        Column(
+                            verticalArrangement = Arrangement.SpaceEvenly,
+                            modifier = Modifier
+                                .padding(25.dp, 5.dp, 25.dp, 5.dp)
+                        ) {
+                            TextField(
+                                modifier = Modifier.fillMaxWidth(),
+                                value = webName,
+                                onValueChange = { webName = it },
+                                label = { Text(text = "Web Name") },
+                            )
+
+                            TextField(
+                                modifier = Modifier
+                                    .fillMaxWidth(),
+                                value = anchor0,
+                                onValueChange = { anchor0 = it },
+                                label = { Text(text = "1st Anchor") },
+                            )
+
+                            TextField(
+                                modifier = Modifier
+                                    .fillMaxWidth(),
+                                value = anchor1,
+                                onValueChange = { anchor1 = it },
+                                label = { Text(text = "2nd Anchor") },
+                            )
+
+                            TextField(
+                                modifier = Modifier
+                                    .fillMaxWidth(),
+                                value = anchor2,
+                                onValueChange = { anchor2 = it },
+                                label = { Text(text = "3rd Anchor") },
+                            )
+
+                            Button(
+                                content = { Text("Create Web!") },
+                                onClick = { submit = true },
+                                modifier = Modifier
+                                    .align(Alignment.CenterHorizontally)
+                            )
+
+                            if (submit) {
+                                isNewWebDialogOpen = false
+                                ttrpg.webs.add(Web(webName, anchor0, anchor1, anchor2))
+                            }
+
+                        }
+                    }
+                }
+            }
+
             if (isNewDialogOpen) {
                 Dialog(
                     title = "New System",
                     onCloseRequest = { isNewDialogOpen = false },
-                    state = rememberDialogState(position = WindowPosition(Alignment.Center))
+                    state = rememberDialogState(position = WindowPosition(Alignment.Center)),
                 ) {
                     var load by remember { mutableStateOf(false) }
                     Column(
                         modifier = Modifier
-                            .fillMaxHeight()
                             .padding(50.dp),
                         verticalArrangement = Arrangement.SpaceEvenly
                     ) {
@@ -158,7 +226,7 @@ fun main() = application {
                         if (load) {
                             isNewDialogOpen = false
                             isLoaded = true
-                            winTitle = systemName
+                            winTitle = "Forged: ${systemName}"
                         }
 
                     }
@@ -168,7 +236,7 @@ fun main() = application {
         // Main App
         if (isLoaded) {
             MaterialTheme {
-                ttrpg = remember({ TTRPG(systemName, authorName) })
+                ttrpg = remember { TTRPG(systemName, authorName) }
                 print(ttrpg.toString())
                 var webSelected by remember { mutableStateOf(0) }
 
@@ -198,7 +266,7 @@ class Anchor(
     val y: Double,
 ) {
     override fun toString(): String {
-        return "$name: ($x, $y)"
+        return " $name: ($x, $y)\n  "
     }
 }
 
@@ -219,13 +287,12 @@ class Web(
             )
     }
 
-    public fun createAnchor() {
-
-    }
-
-
     override fun toString(): String {
-        return "name: $name\n anchors:\n ${anchors.toString()}"
+        var anchorOut = mutableListOf<Anchor>()
+        anchors.forEach {
+            anchorOut.add(it)
+        }
+        return " name: $name\n anchors:\n ${anchors.toString()}\n"
     }
 }
 
@@ -239,7 +306,11 @@ class TTRPG(
     }
 
     override fun toString(): String {
-        return "name: $name\n author: $author\n Webs:\n $webs "
+        var webOut = mutableListOf<Web>()
+        webs.forEach {
+            webOut.add(it)
+        }
+        return " name: $name\n author: $author\n Webs:\n $webOut\n"
     }
 
 }
