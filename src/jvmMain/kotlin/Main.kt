@@ -22,13 +22,23 @@
  */
 
 
+import androidx.compose.desktop.ui.tooling.preview.Preview
+import androidx.compose.foundation.VerticalScrollbar
+import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.rememberScrollbarAdapter
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.Button
 import androidx.compose.material.MaterialTheme
+import androidx.compose.material.Surface
 import androidx.compose.material.Text
 import androidx.compose.material.TextField
 import androidx.compose.runtime.getValue
@@ -38,8 +48,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.MenuBar
@@ -48,7 +58,7 @@ import androidx.compose.ui.window.WindowPosition
 import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberDialogState
 
-@ExperimentalComposeUiApi
+@Preview
 fun main() = application {
     var winTitle by remember { mutableStateOf("") }
     var ttrpg by remember { mutableStateOf(TTRPG("", "")) }
@@ -56,9 +66,10 @@ fun main() = application {
         title = winTitle,
         onCloseRequest = ::exitApplication
     ) {
-        var isNewDialogOpen by remember { mutableStateOf(false) }
+        var isNewTTRPGDialogOpen by remember { mutableStateOf(false) }
         var isCopyrightDialogOpen by remember { mutableStateOf(false) }
         var isNewWebDialogOpen by remember { mutableStateOf(false) }
+        var isNewAnchorDialogOpen by remember { mutableStateOf(false) }
         var notImplemented by remember { mutableStateOf(false) }
         var isLoaded by remember { mutableStateOf(false) }
         var systemName by remember { mutableStateOf("Example System") }
@@ -68,7 +79,7 @@ fun main() = application {
 
             // Menu Bar Items
             Menu("File") {
-                Item("New", onClick = { isNewDialogOpen = true })
+                Item("New", onClick = { isNewTTRPGDialogOpen = true })
                 Item("Load", onClick = { notImplemented = true }) // TODO: Add loading functionality
                 if (isLoaded) {
                     Item("Save", onClick = { notImplemented = true })
@@ -79,6 +90,9 @@ fun main() = application {
             if (isLoaded) {
                 Menu("Edit") {
                     Item("Create Web", onClick = { isNewWebDialogOpen = true })
+                    if (ttrpg.webs.size != 0) {
+                        Item("Create Anchor", onClick = { isNewAnchorDialogOpen = true })
+                    }
                 }
             }
 
@@ -192,11 +206,25 @@ fun main() = application {
                 }
             }
 
-            if (isNewDialogOpen) {
+            if (isNewAnchorDialogOpen) {
+                Dialog(
+                    title = "${ttrpg.name}: New Anchor",
+                    onCloseRequest = { isNewAnchorDialogOpen = false },
+                    state = rememberDialogState(
+                        position = WindowPosition(Alignment.Center),
+                        400.dp, 450.dp
+                    ),
+                    resizable = true,
+                ) {
+                    // TODO: Add create anchor Dialog formatting and logic
+                }
+            }
+
+            if (isNewTTRPGDialogOpen) {
                 Dialog(
                     title = "New System",
-                    onCloseRequest = { isNewDialogOpen = false },
-                    state = rememberDialogState(position = WindowPosition(Alignment.Center)),
+                    onCloseRequest = { isNewTTRPGDialogOpen = false },
+                    state = rememberDialogState(position = WindowPosition(Alignment.Center))
                 ) {
                     var load by remember { mutableStateOf(false) }
                     Column(
@@ -227,7 +255,7 @@ fun main() = application {
                         )
 
                         if (load) {
-                            isNewDialogOpen = false
+                            isNewTTRPGDialogOpen = false
                             isLoaded = true
                             winTitle = "Forged: ${systemName}"
                         }
@@ -241,18 +269,53 @@ fun main() = application {
         if (isLoaded) {
             MaterialTheme {
                 ttrpg = remember { TTRPG(systemName, authorName) }
-                print(ttrpg.toString())
-                var webSelected by remember { mutableStateOf(0) }
+                val mainVerticle = rememberScrollState(0)
+                val mainHorizontal = rememberScrollState(0)
+                Box(
+                    modifier = Modifier
+                        .verticalScroll(mainHorizontal)
+                        .horizontalScroll(mainHorizontal)
+                        .padding(12.dp)
+                ) {
+                    // Show Anchors in web
 
-                Box { // Expanded Drop Down Substitute
-                    var expanded by remember { mutableStateOf(false) }
-                    Button(
-                        onClick = { expanded = true }
-                    ) {
-                        if (mutableStateOf(ttrpg.webs.size).value != 0) {
-                            Text(ttrpg.webs[webSelected].name)
-                        } else {
-                            Text("Edit -> New Web")
+                    if (ttrpg.webs.size != 0) {
+                        Surface(
+                            modifier = Modifier
+                                .padding(4.dp)
+                                .background(color = Color(20, 20, 20))
+                                .size(120.dp, 160.dp)
+                        ) {
+                            ttrpg.webs.forEachIndexed { webIndex, eachWeb ->
+                                Text(ttrpg.webs[webIndex].name)
+
+                                Column {
+                                    Box(
+                                        modifier = Modifier
+                                            .background(color = Color(180, 180, 180))
+                                            .padding(10.dp)
+                                    ) {
+                                        val stateVertical = rememberScrollState(0)
+
+                                        Box(
+                                            modifier = Modifier
+                                                .verticalScroll(stateVertical)
+                                                .padding(top = 12.dp, bottom = 12.dp)
+                                        ) {
+                                            Column {
+                                                eachWeb.anchors.forEachIndexed { anchorIndex, eachAnchor ->
+                                                    Text("${anchorIndex + 1}: ${eachAnchor.name}")
+                                                }
+                                            }
+                                        }
+                                        VerticalScrollbar(
+                                            modifier = Modifier.align(Alignment.CenterEnd)
+                                                .fillMaxHeight(),
+                                            adapter = rememberScrollbarAdapter(stateVertical)
+                                        )
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -296,7 +359,7 @@ class Web(
         anchors.forEach {
             anchorOut.add(it)
         }
-        return " name: $name\n anchors:\n ${anchors.toString()}\n"
+        return " name: $name\n anchors:\n ${anchorOut.toString()}\n"
     }
 }
 
