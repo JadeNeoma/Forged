@@ -22,22 +22,16 @@
  */
 
 
-import androidx.compose.desktop.ui.tooling.preview.Preview
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.Button
-import androidx.compose.material.DropdownMenu
-import androidx.compose.material.DropdownMenuItem
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Text
 import androidx.compose.material.TextField
-import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
@@ -46,7 +40,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.MenuBar
@@ -55,52 +48,9 @@ import androidx.compose.ui.window.WindowPosition
 import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberDialogState
 
-@Composable
-@Preview
-fun App(ttrpg: TTRPG) {
-    MaterialTheme {
-
-        Text("Hello World")
-        var websDropDown by remember { mutableStateOf(false) }
-        var weblength by remember { mutableStateOf(ttrpg.webs.size) }
-        var webSelected by remember { mutableStateOf(0) }
-        Column(
-            modifier = Modifier.fillMaxSize(0.5f)
-        ) {
-            if (weblength == 0) {
-                Text(
-                    text = "Go to 'Edit' then 'Create Web' to get started",
-                    modifier = Modifier.fillMaxWidth().background(Color.Gray)
-                )
-            } else {
-                Text(
-                    text = remember { ttrpg.webs[webSelected].name },
-                    modifier = Modifier.fillMaxWidth().clickable(onClick = { websDropDown = true })
-                        .background(Color.Gray)
-                )
-            }
-            DropdownMenu(
-                onDismissRequest = { websDropDown = false },
-                expanded = websDropDown
-            ) {
-                ttrpg.webs.forEachIndexed { i, each ->
-                    DropdownMenuItem(
-                        onClick = { webSelected = i },
-                        content = { Text(each.name) }
-                    )
-                }
-                DropdownMenuItem(
-                    onClick = {},
-                    content = { Text("Hello World") }
-                )
-            }
-        }
-    }
-}
-
-
 fun main() = application {
     var winTitle by remember { mutableStateOf("") }
+    var ttrpg by remember { mutableStateOf(TTRPG("", "")) }
     Window(
         title = winTitle,
         onCloseRequest = ::exitApplication
@@ -111,8 +61,6 @@ fun main() = application {
         var isLoaded by remember { mutableStateOf(false) }
         var systemName by remember { mutableStateOf("Example System") }
         var authorName by remember { mutableStateOf("Example Author") }
-        var ttrpg = TTRPG("empty", "empty")
-        var reload by remember { mutableStateOf(false) }
 
         MenuBar {
             Menu("File") {
@@ -127,8 +75,7 @@ fun main() = application {
             if (isLoaded) {
                 Menu("Edit") {
                     Item("Create Web", onClick = {
-                        ttrpg.addWeb("test", "first", "second", "third")
-                        reload = true
+                        ttrpg.webs.add(Web("", "", "", ""))
                     })
                 }
             }
@@ -211,7 +158,6 @@ fun main() = application {
                         if (load) {
                             isNewDialogOpen = false
                             isLoaded = true
-                            var ttrpg = TTRPG(systemName, authorName)
                             winTitle = systemName
                         }
 
@@ -219,9 +165,29 @@ fun main() = application {
                 }
             }
         }
+        // Main App
         if (isLoaded) {
-            App(ttrpg)
+            MaterialTheme {
+                ttrpg = remember({ TTRPG(systemName, authorName) })
+                print(ttrpg.toString())
+                var webSelected by remember { mutableStateOf(0) }
+
+                Box { // Expanded Drop Down Substitute
+                    var expanded by remember { mutableStateOf(false) }
+                    Button(
+                        onClick = { expanded = true }
+                    ) {
+                        if (mutableStateOf(ttrpg.webs.size).value != 0) {
+                            Text(ttrpg.webs[webSelected].name)
+                        } else {
+                            Text("Edit -> New Web")
+                        }
+                    }
+                }
+            }
         }
+
+
     }
 
 }
@@ -242,12 +208,16 @@ class Web(
     anchor1: String,
     anchor2: String
 ) {
-    var anchors: SnapshotStateList<Anchor> =
-        mutableStateListOf(
-            Anchor(anchor0, 0.0, 433.013),
-            Anchor(anchor1, 500.0, -433.013),
-            Anchor(anchor2, -500.0, -433.013)
-        )
+    lateinit var anchors: SnapshotStateList<Anchor>
+
+    init {
+        anchors =
+            mutableStateListOf(
+                Anchor(anchor0, 0.0, 433.013),
+                Anchor(anchor1, 500.0, -433.013),
+                Anchor(anchor2, -500.0, -433.013)
+            )
+    }
 
     public fun createAnchor() {
 
@@ -255,7 +225,7 @@ class Web(
 
 
     override fun toString(): String {
-        return "name: $name\n anchors:\n $anchors"
+        return "name: $name\n anchors:\n ${anchors.toString()}"
     }
 }
 
@@ -270,12 +240,6 @@ class TTRPG(
 
     override fun toString(): String {
         return "name: $name\n author: $author\n Webs:\n $webs "
-    }
-
-    fun addWeb(webName: String, anchor1: String, anchor2: String, anchor3: String) {
-        mutableStateListOf<Web>().apply {
-            add(Web(webName, anchor1, anchor2, anchor3))
-        }
     }
 
 }
