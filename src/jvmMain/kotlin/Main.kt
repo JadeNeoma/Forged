@@ -65,6 +65,8 @@ fun main() = application {
         var authorName by remember { mutableStateOf("Example Author") }
 
         MenuBar {
+
+            // Menu Bar Items
             Menu("File") {
                 Item("New", onClick = { isNewDialogOpen = true })
                 Item("Load", onClick = { notImplemented = true }) // TODO: Add loading functionality
@@ -85,6 +87,7 @@ fun main() = application {
                 Item("Copyright", onClick = { isCopyrightDialogOpen = true })
             }
 
+            // Dialog Boxes
             if (isCopyrightDialogOpen) {
                 Dialog(
                     title = "Copyright",
@@ -233,6 +236,7 @@ fun main() = application {
                 }
             }
         }
+
         // Main App
         if (isLoaded) {
             MaterialTheme {
