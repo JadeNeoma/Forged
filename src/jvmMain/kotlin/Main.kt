@@ -243,8 +243,8 @@ fun main() = application {
                         var anchor1Selection by remember { mutableStateOf(-1) }
                         var anchor1Difference by remember { mutableStateOf(1000.0) }
                         var anchor1Expanded by remember { mutableStateOf(false) }
-                        var anchor1MaxDiff by remember { mutableStateOf(2000.0) }
-                        var anchor1MinDiff by remember { mutableStateOf(0.0) }
+                        var anchor1MaxDiff by remember { mutableStateOf(1999.0) }
+                        var anchor1MinDiff by remember { mutableStateOf(1.0) }
 
                         Column(
                             horizontalAlignment = Alignment.CenterHorizontally,
@@ -360,7 +360,7 @@ fun main() = application {
                                         if (advanced.not()) {
                                             Text("Difference: ${(anchor0Difference).toInt()}")
                                             Slider(
-                                                valueRange = 0f..2000f,
+                                                valueRange = 1f..1999f,
                                                 value = anchor0Difference.toFloat(),
                                                 onValueChange = { anchor0Difference = it.toDouble() },
                                                 modifier = Modifier
@@ -397,8 +397,12 @@ fun main() = application {
                             ) {
                                 Button(
                                     content = {
-                                        if (anchor1Selection == -1) {
-                                            Text("Select Second Anchor")
+                                        if (webSelection == -1) {
+                                            Text("Select Web First!")
+                                        } else if (anchor0Selection == -1) {
+                                            Text("Select first anchor first")
+                                        } else if (anchor1Selection == -1) {
+                                            Text("Second anchor")
                                         } else {
                                             Text("Anchor: ${ttrpg.webs[webSelection].anchors[anchor1Selection].name}")
                                         }
@@ -468,7 +472,7 @@ fun main() = application {
                                                     ttrpg.webs[webSelection].anchors[anchor0Selection].y,
                                                     ttrpg.webs[webSelection].anchors[anchor1Selection].x,
                                                     ttrpg.webs[webSelection].anchors[anchor1Selection].y
-                                                ) - (anchor0Difference - 1)
+                                                ) - (anchor0Difference)
                                             )
                                             anchor1MaxDiff = abs(
                                                 dist(
@@ -476,8 +480,10 @@ fun main() = application {
                                                     ttrpg.webs[webSelection].anchors[anchor0Selection].y,
                                                     ttrpg.webs[webSelection].anchors[anchor1Selection].x,
                                                     ttrpg.webs[webSelection].anchors[anchor1Selection].y
-                                                ) + (anchor0Difference - 1)
+                                                ) + (anchor0Difference)
                                             )
+
+
                                         }
 
                                         if (advanced.not()) {
@@ -513,9 +519,46 @@ fun main() = application {
                                     }
 
                                 }
+
+                                Box(
+                                    contentAlignment = Alignment.TopCenter,
+                                    modifier = Modifier.padding(0.dp, 0.dp, 0.dp, 10.dp)
+                                ) {
+                                    Button(
+                                        content = {
+                                            if (webSelection == -1) {
+                                                Text("Select Web First!")
+                                            } else if (anchor0Selection == -1) {
+                                                Text("Select first anchor first")
+                                            } else if (anchor1Selection == -1) {
+                                                Text("Select second anchor first")
+                                            } else {
+                                                Text("Anchor: ${ttrpg.webs[anchor0Selection].name}")
+                                            }
+                                        },
+                                        onClick = { anchor0Expanded = true },
+                                        modifier = Modifier
+                                            .align(Alignment.TopCenter)
+                                    )
+                                    if (webSelection != -1) {
+                                        DropdownMenu(
+                                            onDismissRequest = { anchor0Expanded = false },
+                                            expanded = anchor0Expanded
+                                        ) {
+                                            ttrpg.webs[webSelection].anchors.forEachIndexed { anchorIndex, eachAnchor ->
+                                                DropdownMenuItem(
+                                                    onClick = {
+                                                        anchor0Selection = anchorIndex
+                                                        anchor0Expanded = false
+                                                    }) {
+                                                    Text(eachAnchor.name)
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+
                             }
-
-
                         }
                     }
                 }
