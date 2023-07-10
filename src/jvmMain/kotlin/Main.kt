@@ -31,7 +31,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.Button
 import androidx.compose.material.DropdownMenu
 import androidx.compose.material.DropdownMenuItem
@@ -554,7 +553,7 @@ fun main() = application {
                             if (load) {
                                 isNewTTRPGDialogOpen = false
                                 isLoaded = true
-                                winTitle = "Forged: ${systemName}"
+                                winTitle = "Forged: $systemName"
                             }
 
                         }
@@ -566,8 +565,6 @@ fun main() = application {
             if (isLoaded) {
                 MaterialTheme {
                     ttrpg = remember { TTRPG(systemName, authorName) }
-                    val mainVerticle = rememberScrollState(0)
-                    val mainHorizontal = rememberScrollState(0)
                     // Show Anchors in web
 
                     // if (ttrpg.webs.size != 0 and ttrpg.webs.size) {
@@ -640,11 +637,9 @@ class Web(
 class TTRPG(
     var name: String,
     var author: String,
-    var webs: SnapshotStateList<Web> = mutableStateListOf()
+    var webs: SnapshotStateList<Web> = mutableStateListOf(),
+    val created: Long = System.currentTimeMillis()
 ) {
-    init {
-        val created = System.currentTimeMillis()
-    }
 
     override fun toString(): String {
         val webOut = mutableListOf<Web>()
