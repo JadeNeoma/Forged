@@ -237,11 +237,11 @@ fun main() = application {
                         var webSelection by remember { mutableStateOf(-1) }
 
                         var anchor0Selection by remember { mutableStateOf(-1) }
-                        var anchor0Difference by remember { mutableStateOf(0.5) }
+                        var anchor0Difference by remember { mutableStateOf(1000.0) }
                         var anchor0Expanded by remember { mutableStateOf(false) }
 
                         var anchor1Selection by remember { mutableStateOf(-1) }
-                        var anchor1Difference by remember { mutableStateOf(0.5) }
+                        var anchor1Difference by remember { mutableStateOf(1000.0) }
                         var anchor1Expanded by remember { mutableStateOf(false) }
                         var anchor1MaxDiff by remember { mutableStateOf(2000.0) }
                         var anchor1MinDiff by remember { mutableStateOf(0.0) }
@@ -326,6 +326,7 @@ fun main() = application {
                                 }
                             }
 
+                            // first anchor
                             Box(
                                 contentAlignment = Alignment.TopCenter
                             ) {
@@ -357,8 +358,9 @@ fun main() = application {
                                     ) {
 
                                         if (advanced.not()) {
-                                            Text("Difference: ${(anchor0Difference * 2000).toInt()}")
+                                            Text("Difference: ${(anchor0Difference).toInt()}")
                                             Slider(
+                                                valueRange = 0f..2000f,
                                                 value = anchor0Difference.toFloat(),
                                                 onValueChange = { anchor0Difference = it.toDouble() },
                                                 modifier = Modifier
@@ -370,10 +372,10 @@ fun main() = application {
                                                 contentAlignment = Alignment.TopCenter
                                             ) {
                                                 TextField(
-                                                    value = (anchor0Difference * 2000).toInt().toString(),
+                                                    value = (anchor0Difference).toInt().toString(),
                                                     onValueChange = {
                                                         anchor0Difference = if (it.matches(Regex("^[0-9]+\$"))) {
-                                                            it.toDouble() / 2000
+                                                            it.toDouble()
                                                         } else {
                                                             0.5
                                                         }
@@ -389,6 +391,7 @@ fun main() = application {
                                 }
                             }
 
+                            // Second anchor
                             Box(
                                 contentAlignment = Alignment.TopCenter
                             ) {
@@ -458,14 +461,14 @@ fun main() = application {
                                         contentAlignment = Alignment.TopCenter,
                                         modifier = Modifier.padding(0.dp, 0.dp, 0.dp, 10.dp)
                                     ) {
-                                        if (anchor1Selection != -1) { // TODO: Find a way to have these values set correctly
+                                        if (anchor1Selection != -1) {
                                             anchor1MinDiff = abs(
                                                 dist(
                                                     ttrpg.webs[webSelection].anchors[anchor0Selection].x,
                                                     ttrpg.webs[webSelection].anchors[anchor0Selection].y,
                                                     ttrpg.webs[webSelection].anchors[anchor1Selection].x,
                                                     ttrpg.webs[webSelection].anchors[anchor1Selection].y
-                                                ) - (anchor0Difference * 2000)
+                                                ) - (anchor0Difference - 1)
                                             )
                                             anchor1MaxDiff = abs(
                                                 dist(
@@ -473,14 +476,15 @@ fun main() = application {
                                                     ttrpg.webs[webSelection].anchors[anchor0Selection].y,
                                                     ttrpg.webs[webSelection].anchors[anchor1Selection].x,
                                                     ttrpg.webs[webSelection].anchors[anchor1Selection].y
-                                                ) + (anchor0Difference * 2000)
+                                                ) + (anchor0Difference - 1)
                                             )
                                         }
 
                                         if (advanced.not()) {
-                                            Text("Difference: ${((anchor1Difference * abs(anchor1MaxDiff - anchor1MinDiff)) + anchor1MinDiff).toInt()}")
+                                            Text("Difference: ${anchor1Difference.toInt()}")
                                             Slider(
                                                 value = anchor1Difference.toFloat(),
+                                                valueRange = anchor1MinDiff.toFloat()..anchor1MaxDiff.toFloat(),
                                                 onValueChange = { anchor1Difference = it.toDouble() },
                                                 modifier = Modifier
                                                     .fillMaxWidth()
@@ -491,11 +495,11 @@ fun main() = application {
                                                 contentAlignment = Alignment.TopCenter
                                             ) {
                                                 TextField(
-                                                    value = ((anchor0Difference * abs(anchor1MaxDiff - anchor1MinDiff)) + anchor1MinDiff).toInt()
+                                                    value = anchor1Difference.toInt()
                                                         .toString(),
                                                     onValueChange = {
                                                         anchor0Difference = if (it.matches(Regex("^[0-9]+\$"))) {
-                                                            it.toDouble() / 2000
+                                                            it.toDouble()
                                                         } else {
                                                             0.5
                                                         }
