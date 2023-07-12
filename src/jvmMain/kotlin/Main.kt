@@ -31,7 +31,9 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.material.Button
+import androidx.compose.material.Divider
 import androidx.compose.material.DropdownMenu
 import androidx.compose.material.DropdownMenuItem
 import androidx.compose.material.MaterialTheme
@@ -70,22 +72,28 @@ val DISPLAYHEIGHT = GraphicsEnvironment.getLocalGraphicsEnvironment().defaultScr
 fun main() = application {
     var DarkTheme by remember { mutableStateOf(true) }
     var winTitle by remember { mutableStateOf("") }
+    var winState = rememberWindowState(
+        position = WindowPosition(Alignment.CenterStart),
+        height = (DISPLAYHEIGHT - 50).dp, width = (DISPLAYWIDTH - 50).dp
+    )
     var ttrpg by remember { mutableStateOf(TTRPG("", "")) }
     Window(
         title = winTitle,
         onCloseRequest = ::exitApplication,
-        state = rememberWindowState(
-            position = WindowPosition(Alignment.CenterStart),
-            height = (DISPLAYHEIGHT - 50).dp, width = (DISPLAYWIDTH - 50).dp
-        )
+        state = winState
     ) {
         MaterialTheme {
             var isNewTTRPGDialogOpen by remember { mutableStateOf(false) }
             var isCopyrightDialogOpen by remember { mutableStateOf(false) }
             var isNewWebDialogOpen by remember { mutableStateOf(false) }
             var isNewAnchorDialogOpen by remember { mutableStateOf(false) }
+            var isSaveDialogOpen by remember { mutableStateOf(false) }
+
+
             var notImplemented by remember { mutableStateOf(false) }
-            var isLoaded by remember { mutableStateOf(false) }
+            var isTTRPGLoaded by remember { mutableStateOf(false) }
+            var isGroupLoaded by remember { mutableStateOf(false) }
+
             var systemName by remember { mutableStateOf("Example System") }
             var authorName by remember { mutableStateOf("Example Author") }
 
@@ -95,14 +103,14 @@ fun main() = application {
                 Menu("File") {
                     Item("New", onClick = { isNewTTRPGDialogOpen = true })
                     Item("Load", onClick = { notImplemented = true }) // TODO: Add loading functionality
-                    if (isLoaded) {
-                        Item("Save", onClick = { notImplemented = true })
+                    if (isTTRPGLoaded) {
+                        Item("Save", onClick = { isSaveDialogOpen = true })
                     }
                     Item("Swap Theme", onClick = { DarkTheme = DarkTheme.not() })
                     Item("Exit", onClick = { exitApplication() })
                 }
 
-                if (isLoaded) {
+                if (isTTRPGLoaded) {
                     Menu("Edit") {
                         Item("Create Web", onClick = { isNewWebDialogOpen = true })
                         if (ttrpg.webs.size != 0) {
@@ -141,6 +149,18 @@ fun main() = application {
                                     "Public License along with Forged. If not, see\n" +
                                     "<https://www.gnu.org/licenses/>."
                         )
+                    }
+                }
+
+                if (isSaveDialogOpen) {
+                    Dialog(
+                        title = "Save",
+                        onCloseRequest = { isSaveDialogOpen = false },
+                        state = rememberDialogState(position = WindowPosition(Alignment.Center))
+                    ) {
+                        Column {
+
+                        }
                     }
                 }
 
@@ -227,11 +247,11 @@ fun main() = application {
                         onCloseRequest = { isNewAnchorDialogOpen = false },
                         state = rememberDialogState(
                             position = WindowPosition(Alignment.Center),
-                            600.dp, 550.dp
+                            600.dp, 700.dp
                         ),
                         resizable = true,
                     ) {
-                        var anchorName by remember { mutableStateOf("Example Anchor") }
+                        var newAnchorName by remember { mutableStateOf("Example Anchor") }
 
                         var webExpanded by remember { mutableStateOf(false) }
                         var webSelection by remember { mutableStateOf(-1) }
@@ -246,11 +266,27 @@ fun main() = application {
                         var anchor1MaxDiff by remember { mutableStateOf(1999.0) }
                         var anchor1MinDiff by remember { mutableStateOf(1.0) }
 
+                        var anchor2Selection by remember { mutableStateOf(-1) }
+                        var anchor2Expanded by remember { mutableStateOf(false) }
+
+                        var optionSelected by remember { mutableStateOf(-1) }
+                        var optionExpanded by remember { mutableStateOf(false) }
+                        // var intersects by remember { mutableStateOf( mutableListOf( listOf(0.0,0.0)) )}
+                        // var options by remember { mutableStateOf(mutableListOf(0.0,0.0)) }
+
+                        var newAnchorCoords by remember { mutableStateOf(listOf(0.0, 0.0)) }
+
+                        var submit by remember { mutableStateOf(false) }
+
+
                         Column(
                             horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.SpaceEvenly,
                             modifier = Modifier
                                 .padding(25.dp)
                         ) {
+
+                            // Web selection
                             Box(
                                 contentAlignment = Alignment.TopCenter
                             ) {
@@ -286,11 +322,12 @@ fun main() = application {
                             TextField(
                                 modifier = Modifier
                                     .align(Alignment.CenterHorizontally),
-                                value = anchorName,
-                                onValueChange = { anchorName = it },
+                                value = newAnchorName,
+                                onValueChange = { newAnchorName = it },
                                 label = { Text(text = "Anchor Name:") },
                             )
 
+                            // First Anchor
                             Box(
                                 contentAlignment = Alignment.TopCenter
                             ) {
@@ -301,7 +338,7 @@ fun main() = application {
                                         } else if (anchor0Selection == -1) {
                                             Text("First Anchor")
                                         } else {
-                                            Text("Anchor: ${ttrpg.webs[anchor0Selection].name}")
+                                            Text("Anchor: ${ttrpg.webs[webSelection].anchors[anchor0Selection].name}")
                                         }
                                     },
                                     onClick = { anchor0Expanded = true },
@@ -314,24 +351,37 @@ fun main() = application {
                                         expanded = anchor0Expanded
                                     ) {
                                         ttrpg.webs[webSelection].anchors.forEachIndexed { anchorIndex, eachAnchor ->
-                                            DropdownMenuItem(
-                                                onClick = {
-                                                    anchor0Selection = anchorIndex
-                                                    anchor0Expanded = false
-                                                }) {
-                                                Text(eachAnchor.name)
+                                            if (anchorIndex != anchor1Selection && anchorIndex != anchor2Selection) {
+
+                                                DropdownMenuItem(
+                                                    onClick = {
+                                                        anchor0Selection = anchorIndex
+                                                        anchor0Expanded = false
+                                                    }) {
+                                                    Text(eachAnchor.name)
+                                                }
                                             }
+                                        }
+                                        Divider(startIndent = 1.dp, thickness = 1.dp, color = Color.Black)
+                                        DropdownMenuItem(
+                                            onClick = {
+                                                anchor0Selection = -1
+                                                anchor1Selection = -1
+                                                anchor2Selection = -1
+                                            }
+                                        ) {
+                                            Text("RESET")
                                         }
                                     }
                                 }
                             }
 
-                            // first anchor
                             Box(
                                 contentAlignment = Alignment.TopCenter
                             ) {
                                 Column(
                                     horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.SpaceEvenly,
                                     modifier = Modifier
                                         .padding(25.dp, 0.dp)
                                         .fillMaxWidth()
@@ -411,26 +461,30 @@ fun main() = application {
                                     modifier = Modifier
                                         .align(Alignment.TopCenter)
                                 )
-                                DropdownMenu(
-                                    onDismissRequest = { anchor1Expanded = false },
-                                    expanded = anchor1Expanded
-                                ) {
-                                    ttrpg.webs[webSelection].anchors.forEachIndexed { anchorIndex, eachAnchor ->
-                                        var passed = false
-                                        if (anchorIndex != anchor0Selection) {
-                                            DropdownMenuItem(
-                                                onClick = {
-                                                    anchor1Selection = if (passed) {
-                                                        anchorIndex
-                                                    } else {
-                                                        anchorIndex + 1
-                                                    }
-                                                    anchor1Expanded = false
-                                                }) {
-                                                Text(eachAnchor.name)
+                                if ((webSelection != -1) && (anchor0Selection != -1)) {
+                                    DropdownMenu(
+                                        onDismissRequest = { anchor1Expanded = false },
+                                        expanded = anchor1Expanded
+                                    ) {
+                                        ttrpg.webs[webSelection].anchors.forEachIndexed { anchorIndex, eachAnchor ->
+                                            if (anchorIndex != anchor0Selection && anchorIndex != anchor2Selection) {
+                                                DropdownMenuItem(
+                                                    onClick = {
+                                                        anchor1Selection = anchorIndex
+                                                        anchor1Expanded = false
+                                                    }) {
+                                                    Text(eachAnchor.name)
+                                                }
                                             }
-                                        } else {
-                                            passed = true
+                                        }
+                                        Divider(startIndent = 1.dp, thickness = 1.dp, color = Color.Black)
+                                        DropdownMenuItem(
+                                            onClick = {
+                                                anchor1Selection = -1
+                                                anchor2Selection = -1
+                                            }
+                                        ) {
+                                            Text("RESET")
                                         }
                                     }
                                 }
@@ -441,6 +495,7 @@ fun main() = application {
                             ) {
                                 Column(
                                     horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.SpaceEvenly,
                                     modifier = Modifier
                                         .padding(25.dp, 0.dp)
                                         .fillMaxWidth()
@@ -514,51 +569,141 @@ fun main() = application {
                                                 )
                                             }
                                         }
-
-
                                     }
-
                                 }
+                            }
 
-                                Box(
-                                    contentAlignment = Alignment.TopCenter,
-                                    modifier = Modifier.padding(0.dp, 0.dp, 0.dp, 10.dp)
-                                ) {
-                                    Button(
-                                        content = {
-                                            if (webSelection == -1) {
-                                                Text("Select Web First!")
-                                            } else if (anchor0Selection == -1) {
-                                                Text("Select first anchor first")
-                                            } else if (anchor1Selection == -1) {
-                                                Text("Select second anchor first")
-                                            } else {
-                                                Text("Anchor: ${ttrpg.webs[anchor0Selection].name}")
-                                            }
-                                        },
-                                        onClick = { anchor0Expanded = true },
-                                        modifier = Modifier
-                                            .align(Alignment.TopCenter)
-                                    )
-                                    if (webSelection != -1) {
-                                        DropdownMenu(
-                                            onDismissRequest = { anchor0Expanded = false },
-                                            expanded = anchor0Expanded
-                                        ) {
-                                            ttrpg.webs[webSelection].anchors.forEachIndexed { anchorIndex, eachAnchor ->
+                            // third Anchor
+
+                            Box(
+                                contentAlignment = Alignment.TopCenter,
+                                modifier = Modifier.padding(0.dp, 0.dp, 0.dp, 10.dp)
+                            ) {
+                                Button(
+                                    content = {
+                                        if (webSelection == -1) {
+                                            Text("Select Web First!")
+                                        } else if (anchor0Selection == -1) {
+                                            Text("Select first anchor first")
+                                        } else if (anchor1Selection == -1) {
+                                            Text("Select second anchor first")
+                                        } else if (anchor2Selection == -1) {
+                                            Text("Third Anchor")
+                                        } else {
+                                            Text("Anchor: ${ttrpg.webs[webSelection].anchors[anchor2Selection].name}")
+                                        }
+                                    },
+                                    onClick = { anchor2Expanded = true },
+                                    modifier = Modifier
+                                        .align(Alignment.TopCenter)
+                                )
+                                if (webSelection != -1 && anchor0Selection != -1 && anchor1Selection != -1) {
+                                    DropdownMenu(
+                                        onDismissRequest = { anchor2Expanded = false },
+                                        expanded = anchor2Expanded
+                                    ) {
+                                        ttrpg.webs[webSelection].anchors.forEachIndexed { anchorIndex, eachAnchor ->
+                                            if ((anchor0Selection != anchorIndex) && (anchor1Selection != anchorIndex)) {
                                                 DropdownMenuItem(
                                                     onClick = {
-                                                        anchor0Selection = anchorIndex
-                                                        anchor0Expanded = false
+                                                        anchor2Selection = anchorIndex
+                                                        anchor2Expanded = false
                                                     }) {
                                                     Text(eachAnchor.name)
                                                 }
                                             }
                                         }
+                                        Divider(startIndent = 1.dp, thickness = 1.dp, color = Color.Black)
+                                        DropdownMenuItem(
+                                            onClick = {
+                                                anchor2Selection = -1
+                                            }
+                                        ) {
+                                            Text("RESET")
+                                        }
                                     }
                                 }
-
                             }
+                            Box {
+                                Button(
+                                    content = {
+                                        if (webSelection == -1) {
+                                            Text("Select Web First!")
+                                        } else if (anchor0Selection == -1) {
+                                            Text("Select first anchor first")
+                                        } else if (anchor1Selection == -1) {
+                                            Text("Select second anchor first")
+                                        } else if (anchor2Selection == -1) {
+                                            Text("Select third anchor first")
+                                        } else if (optionSelected == -1) {
+                                            Text("Difference")
+                                        } else {
+                                            Text("Difference:")
+                                        }
+                                    },
+                                    onClick = { optionExpanded = true },
+                                    modifier = Modifier
+                                        .align(Alignment.TopCenter)
+                                )
+
+                                if (anchor2Selection != -1) {
+                                    Column(
+                                        verticalArrangement = Arrangement.SpaceEvenly,
+                                    ) {
+                                        DropdownMenu(
+                                            onDismissRequest = { optionExpanded = false },
+                                            expanded = optionExpanded
+                                        ) {
+                                            DropdownMenuItem(
+                                                onClick = {
+                                                    optionSelected = 0
+                                                    optionExpanded = false
+                                                }
+                                            ) {
+                                                Text("smallest difference")
+                                            }
+                                            DropdownMenuItem(
+                                                onClick = {
+                                                    optionSelected = 1
+                                                    optionExpanded = false
+                                                }
+                                            ) {
+                                                Text("largest difference")
+                                            }
+                                            if (optionSelected != -1) {
+                                                newAnchorCoords = intersect(
+                                                    ttrpg.webs[webSelection].anchors[anchor0Selection].x,
+                                                    ttrpg.webs[webSelection].anchors[anchor0Selection].y,
+                                                    anchor0Difference,
+                                                    ttrpg.webs[webSelection].anchors[anchor1Selection].x,
+                                                    ttrpg.webs[webSelection].anchors[anchor1Selection].y,
+                                                    anchor1Difference,
+                                                    ttrpg.webs[webSelection].anchors[anchor2Selection].x,
+                                                    ttrpg.webs[webSelection].anchors[anchor2Selection].y
+                                                )[optionSelected]
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            Button(
+                                content = { Text("Create Anchor!") },
+                                onClick = { submit = true },
+                                modifier = Modifier
+                                    .align(Alignment.CenterHorizontally)
+                            )
+
+                            if (submit) {
+                                ttrpg.webs[webSelection].anchors.add(
+                                    Anchor(
+                                        newAnchorName,
+                                        newAnchorCoords[0],
+                                        newAnchorCoords[1]
+                                    )
+                                )
+                                isNewAnchorDialogOpen = false
+                            }
+
                         }
                     }
                 }
@@ -599,7 +744,7 @@ fun main() = application {
 
                             if (load) {
                                 isNewTTRPGDialogOpen = false
-                                isLoaded = true
+                                isTTRPGLoaded = true
                                 winTitle = "Forged: $systemName"
                             }
 
@@ -609,16 +754,22 @@ fun main() = application {
             }
 
             // Main App
-            if (isLoaded) {
-                MaterialTheme {
+            Row(
+                horizontalArrangement = Arrangement.SpaceBetween,
+                modifier = Modifier
+                    .fillMaxWidth()
+            ) {
+                if (isTTRPGLoaded) {
                     ttrpg = remember { TTRPG(systemName, authorName) }
                     // Show Anchors in web
 
                     // if (ttrpg.webs.size != 0 and ttrpg.webs.size) {
                     Column(
+                        horizontalAlignment = Alignment.Start,
                         modifier = Modifier
                             .fillMaxHeight()
                             .background(color = Color(180, 180, 180))
+                            .width(250.dp)
                     ) {
                         Text("${ttrpg.name}:")
                         for ((webIndex, eachWeb) in ttrpg.webs.withIndex()) {
@@ -629,10 +780,80 @@ fun main() = application {
                         }
                     }
                 }
+
+                if (isGroupLoaded) {
+                    Column(
+                        horizontalAlignment = Alignment.End,
+                        modifier = Modifier
+                            .fillMaxHeight()
+                            .background(color = Color(180, 180, 180))
+                            .width(250.dp)
+                    ) {
+                        Text("Groups")
+                    }
+                }
             }
         }
     }
 }
+
+fun intersect(
+    firstX: Double, firstY: Double, firstR: Double,
+    secondX: Double, secondY: Double, secondR: Double,
+    anchorX: Double, anchorY: Double
+): List<List<Double>> {
+    val first = Circle(firstX, firstY, firstR)
+    val second = Circle(secondX, secondY, secondR)
+    var centerDistance = dist(first.x, first.y, second.x, second.y)
+    while (
+        centerDistance > first.r + second.r
+        || centerDistance <= abs(first.r - second.r)
+        || centerDistance == 0.0
+        || centerDistance == first.r + second.r
+    ) {
+        for (i in 0..1) {
+            first.randShift(i)
+            second.randShift(i)
+        }
+
+        centerDistance = dist(first.x, first.y, second.x, second.y)
+    }
+    val chordDistance = ((first.r).pow(2) - (second.r).pow(2) + centerDistance.pow(2)) / (centerDistance * 2)
+    val halfChordLength = ((first.r).pow(2) - chordDistance.pow(2)).pow(0.5)
+    val chordMidpointX = first.x + (chordDistance * (second.x - first.x) / centerDistance)
+    val chordMidpointY = first.y + (chordDistance * (second.y - first.y) / centerDistance)
+    val option1 = mutableListOf(
+        chordMidpointX + (halfChordLength * (second.y - first.y) / centerDistance),
+        chordMidpointY - (halfChordLength * (second.x - first.x) / centerDistance),
+    )
+
+    val option2 = mutableListOf(
+        chordMidpointX - (halfChordLength * (second.y - first.y) / centerDistance),
+        chordMidpointY + (halfChordLength * (second.x - first.x) / centerDistance),
+    )
+
+
+    return if (dist(option1[0], option1[1], anchorX, anchorY) > dist(option2[0], option2[1], anchorX, anchorY)) {
+        listOf(option2, option1)
+    } else {
+        listOf(option1, option2)
+    }
+
+}
+
+class Circle(
+    var x: Double,
+    var y: Double,
+    var r: Double
+) {
+    fun randShift(index: Int) {
+        when (index) {
+            0 -> x += Random.nextDouble(-1.0, 1.0)
+            1 -> y += Random.nextDouble(-1.0, 1.0)
+        }
+    }
+}
+
 
 fun dist(x0: Double, y0: Double, x1: Double, y1: Double): Double {
     return (sqrt((x0 - x1).pow(2) + (y0 - y1).pow(2)))
