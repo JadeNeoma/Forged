@@ -33,6 +33,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.Button
+import androidx.compose.material.Checkbox
 import androidx.compose.material.Divider
 import androidx.compose.material.DropdownMenu
 import androidx.compose.material.DropdownMenuItem
@@ -58,7 +59,15 @@ import androidx.compose.ui.window.WindowPosition
 import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberDialogState
 import androidx.compose.ui.window.rememberWindowState
+import com.google.gson.Gson
+import com.google.gson.GsonBuilder
+import com.google.gson.JsonObject
 import java.awt.GraphicsEnvironment
+import java.io.File
+import java.io.InputStream
+import java.nio.file.Files
+import java.nio.file.Path
+import java.nio.file.Paths
 import kotlin.math.abs
 import kotlin.math.pow
 import kotlin.math.sqrt
@@ -76,7 +85,7 @@ fun main() = application {
         position = WindowPosition(Alignment.CenterStart),
         height = (DISPLAYHEIGHT - 50).dp, width = (DISPLAYWIDTH - 50).dp
     )
-    var ttrpg by remember { mutableStateOf(TTRPG("", "")) }
+    var party by remember { mutableStateOf(Party("", TTRPG("", ""))) }
     Window(
         title = winTitle,
         onCloseRequest = ::exitApplication,
@@ -88,11 +97,11 @@ fun main() = application {
             var isNewWebDialogOpen by remember { mutableStateOf(false) }
             var isNewAnchorDialogOpen by remember { mutableStateOf(false) }
             var isSaveDialogOpen by remember { mutableStateOf(false) }
-
+            var isLoadDialogOpen by remember { mutableStateOf(false) }
 
             var notImplemented by remember { mutableStateOf(false) }
             var isTTRPGLoaded by remember { mutableStateOf(false) }
-            var isGroupLoaded by remember { mutableStateOf(false) }
+            var isPartyLoaded by remember { mutableStateOf(false) }
 
             var systemName by remember { mutableStateOf("Example System") }
             var authorName by remember { mutableStateOf("Example Author") }
@@ -102,18 +111,18 @@ fun main() = application {
                 // Menu Bar Items
                 Menu("File") {
                     Item("New", onClick = { isNewTTRPGDialogOpen = true })
-                    Item("Load", onClick = { notImplemented = true }) // TODO: Add loading functionality
-                    if (isTTRPGLoaded) {
+                    Item("Load", onClick = { isLoadDialogOpen = true })
+                    if (isTTRPGLoaded || isPartyLoaded) {
                         Item("Save", onClick = { isSaveDialogOpen = true })
                     }
-                    Item("Swap Theme", onClick = { DarkTheme = DarkTheme.not() })
+                    // Item("Swap Theme", onClick = { DarkTheme = DarkTheme.not() })
                     Item("Exit", onClick = { exitApplication() })
                 }
 
                 if (isTTRPGLoaded) {
                     Menu("Edit") {
                         Item("Create Web", onClick = { isNewWebDialogOpen = true })
-                        if (ttrpg.webs.size != 0) {
+                        if (party.system.webs.size != 0) {
                             Item("Create Anchor", onClick = { isNewAnchorDialogOpen = true })
                         }
                     }
@@ -123,632 +132,777 @@ fun main() = application {
                     Item("Manual", onClick = { notImplemented = true }) // TODO: Add manual link
                     Item("Copyright", onClick = { isCopyrightDialogOpen = true })
                 }
+            }
 
-                // Dialog Boxes
-                if (isCopyrightDialogOpen) {
-                    Dialog(
-                        title = "Copyright",
-                        onCloseRequest = { isCopyrightDialogOpen = false },
-                        state = rememberDialogState(position = WindowPosition(Alignment.Center))
-                    ) {
-                        Text(
-                            "Copyright (c) 2023 Jade Neoma\n" +
-                                    "Forged is free software: you can redistribute it and/or\n" +
-                                    "modify it under the terms of the GNU General Public\n" +
-                                    "License as published by the Free Software Foundation,\n" +
-                                    "either version 3 of the License, or (at your option) any\n" +
-                                    "later version.\n" +
-                                    "\n" +
-                                    "Forged is distributed in the hope that it will be useful,\n" +
-                                    "but WITHOUT ANY WARRANTY; without even the\n" +
-                                    "implied warranty of MERCHANTABILITY or FITNESS\n" +
-                                    "FOR A PARTICULAR PURPOSE. See the GNU General\n" +
-                                    "Public License for more details.\n" +
-                                    "\n" +
-                                    "You should have received a copy of the GNU General\n" +
-                                    "Public License along with Forged. If not, see\n" +
-                                    "<https://www.gnu.org/licenses/>."
-                        )
-                    }
+            // Dialog Boxes
+            if (isCopyrightDialogOpen) {
+                Dialog(
+                    title = "Copyright",
+                    onCloseRequest = { isCopyrightDialogOpen = false },
+                    state = rememberDialogState(position = WindowPosition(Alignment.Center))
+                ) {
+                    Text(
+                        "Copyright (c) 2023 Jade Neoma\n" +
+                                "Forged is free software: you can redistribute it and/or\n" +
+                                "modify it under the terms of the GNU General Public\n" +
+                                "License as published by the Free Software Foundation,\n" +
+                                "either version 3 of the License, or (at your option) any\n" +
+                                "later version.\n" +
+                                "\n" +
+                                "Forged is distributed in the hope that it will be useful,\n" +
+                                "but WITHOUT ANY WARRANTY; without even the\n" +
+                                "implied warranty of MERCHANTABILITY or FITNESS\n" +
+                                "FOR A PARTICULAR PURPOSE. See the GNU General\n" +
+                                "Public License for more details.\n" +
+                                "\n" +
+                                "You should have received a copy of the GNU General\n" +
+                                "Public License along with Forged. If not, see\n" +
+                                "<https://www.gnu.org/licenses/>."
+                    )
                 }
+            }
 
-                if (isSaveDialogOpen) {
-                    Dialog(
-                        title = "Save",
-                        onCloseRequest = { isSaveDialogOpen = false },
-                        state = rememberDialogState(position = WindowPosition(Alignment.Center))
-                    ) {
-                        Column {
-
+            if (isSaveDialogOpen) {
+                Dialog(
+                    title = "Save",
+                    onCloseRequest = { isSaveDialogOpen = false },
+                    state = rememberDialogState(position = WindowPosition(Alignment.Center))
+                ) {
+                    var isSuccessDialogOpen by remember { mutableStateOf(false) }
+                    var ttrpgChecked by remember { mutableStateOf(true) }
+                    var saveName by remember { mutableStateOf("") }
+                    var submit by remember { mutableStateOf(false) }
+                    Column {
+                        Row {
+                            Text("TTRPG ONLY:")
+                            Checkbox(
+                                checked = ttrpgChecked,
+                                onCheckedChange = { ttrpgChecked = it }
+                            )
                         }
-                    }
-                }
 
-                if (notImplemented) {
-                    Dialog(
-                        onCloseRequest = { notImplemented = false }
-                    ) {
-                        Text("Not Implemented")
-                    }
-                }
+                        TextField(
+                            value = saveName,
+                            label = { Text("Save Name:") },
+                            onValueChange = { saveName = it }
+                        )
 
-                if (isNewWebDialogOpen) {
-                    Dialog(
-                        title = "${ttrpg.name}: New Web",
-                        onCloseRequest = { isNewWebDialogOpen = false },
-                        state = rememberDialogState(
-                            position = WindowPosition(Alignment.Center),
-                            400.dp, 450.dp
-                        ),
-                        resizable = true,
-                    ) {
-                        var submit by remember { mutableStateOf(false) }
-                        var webName by remember { mutableStateOf("Example Web") }
-                        var anchor0 by remember { mutableStateOf("Anchor 0") }
-                        var anchor1 by remember { mutableStateOf("Anchor 1") }
-                        var anchor2 by remember { mutableStateOf("Anchor 2") }
-                        Box(modifier = Modifier.padding(50.dp)) {
-                            Column(
-                                verticalArrangement = Arrangement.SpaceEvenly,
-                                modifier = Modifier
-                                    .padding(25.dp, 5.dp, 25.dp, 5.dp)
-                            ) {
-                                TextField(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    value = webName,
-                                    onValueChange = { webName = it },
-                                    label = { Text(text = "Web Name") },
-                                )
+                        Button(
+                            onClick = { submit = true },
+                            content = { Text("Save") }
+                        )
 
-                                TextField(
-                                    modifier = Modifier
-                                        .fillMaxWidth(),
-                                    value = anchor0,
-                                    onValueChange = { anchor0 = it },
-                                    label = { Text(text = "1st Anchor") },
-                                )
-
-                                TextField(
-                                    modifier = Modifier
-                                        .fillMaxWidth(),
-                                    value = anchor1,
-                                    onValueChange = { anchor1 = it },
-                                    label = { Text(text = "2nd Anchor") },
-                                )
-
-                                TextField(
-                                    modifier = Modifier
-                                        .fillMaxWidth(),
-                                    value = anchor2,
-                                    onValueChange = { anchor2 = it },
-                                    label = { Text(text = "3rd Anchor") },
-                                )
-
-                                Button(
-                                    content = { Text("Create Web!") },
-                                    onClick = { submit = true },
-                                    modifier = Modifier
-                                        .align(Alignment.CenterHorizontally)
-                                )
-
-                                if (submit) {
-                                    isNewWebDialogOpen = false
-                                    ttrpg.webs.add(Web(webName, anchor0, anchor1, anchor2))
-                                }
-
+                        if (submit && saveName.isBlank().not()) {
+                            isSuccessDialogOpen = if (ttrpgChecked) {
+                                save(party.system, "src/jvmMain/resources/Saves/Systems/$saveName")
+                            } else {
+                                save(party, "src/jvmMain/resources/Saves/Parties/$saveName")
                             }
                         }
+
+                        if (isSuccessDialogOpen) {
+                            Dialog(
+                                title = "Saved Successfully",
+                                onCloseRequest = {
+                                    isSuccessDialogOpen = false
+                                    isSaveDialogOpen = false
+                                }
+                            ) {
+                                Text("Success")
+                            }
+                        }
+
                     }
                 }
+            }
 
-                if (isNewAnchorDialogOpen) {
-                    Dialog(
-                        title = "${ttrpg.name}: New Anchor",
-                        onCloseRequest = { isNewAnchorDialogOpen = false },
-                        state = rememberDialogState(
-                            position = WindowPosition(Alignment.Center),
-                            600.dp, 700.dp
-                        ),
-                        resizable = true,
-                    ) {
-                        var newAnchorName by remember { mutableStateOf("Example Anchor") }
+            if (isLoadDialogOpen) {
+                Dialog(
+                    title = "Load",
+                    onCloseRequest = { isLoadDialogOpen = false },
+                    state = rememberDialogState(position = WindowPosition(Alignment.Center))
+                ) {
+                    var isSuccessDialogOpen by remember { mutableStateOf(false) }
+                    var ttrpgChecked by remember { mutableStateOf(false) }
+                    var nameExpanded by remember { mutableStateOf(false) }
+                    var saveName by remember { mutableStateOf("") }
+                    var saveList by remember { mutableStateOf(mutableListOf<Path>()) }
+                    var submit by remember { mutableStateOf(false) }
+                    Column {
+                        Row {
+                            Text("TTRPG ONLY:")
+                            Checkbox(
+                                checked = ttrpgChecked,
+                                onCheckedChange = {
+                                    ttrpgChecked = it
+                                    saveName = ""
+                                }
+                            )
+                        }
 
-                        var webExpanded by remember { mutableStateOf(false) }
-                        var webSelection by remember { mutableStateOf(-1) }
+                        val path = if (ttrpgChecked) {
+                            "src/jvmMain/resources/Saves/Systems/"
+                        } else {
+                            "src/jvmMain/resources/Saves/Parties/"
+                        }
 
-                        var anchor0Selection by remember { mutableStateOf(-1) }
-                        var anchor0Difference by remember { mutableStateOf(1000.0) }
-                        var anchor0Expanded by remember { mutableStateOf(false) }
+                        val tempList = mutableListOf<Path>()
 
-                        var anchor1Selection by remember { mutableStateOf(-1) }
-                        var anchor1Difference by remember { mutableStateOf(1000.0) }
-                        var anchor1Expanded by remember { mutableStateOf(false) }
-                        var anchor1MaxDiff by remember { mutableStateOf(1999.0) }
-                        var anchor1MinDiff by remember { mutableStateOf(1.0) }
+                        Files.walk(Paths.get(path)).use { paths ->
+                            paths.filter { Files.isRegularFile(it) }
+                                .forEach {
+                                    tempList.add(it)
+                                }
+                            saveList = tempList
+                        }
 
-                        var anchor2Selection by remember { mutableStateOf(-1) }
-                        var anchor2Expanded by remember { mutableStateOf(false) }
+                        Button(
+                            onClick = {
+                                if (saveList.isEmpty().not()) {
+                                    nameExpanded = true
+                                }
+                            },
+                            content = {
+                                if (saveList.isEmpty()) {
+                                    Text("No Saves Found")
+                                } else if (saveName.isBlank()) {
+                                    Text("Select Save")
+                                } else {
+                                    Text(saveName)
+                                }
+                            }
+                        )
 
-                        var optionSelected by remember { mutableStateOf(-1) }
-                        var optionExpanded by remember { mutableStateOf(false) }
-                        // var intersects by remember { mutableStateOf( mutableListOf( listOf(0.0,0.0)) )}
-                        // var options by remember { mutableStateOf(mutableListOf(0.0,0.0)) }
+                        DropdownMenu(
+                            expanded = nameExpanded,
+                            onDismissRequest = { nameExpanded = false }
+                        ) {
+                            saveList.forEach {
+                                DropdownMenuItem(
+                                    onClick = {
+                                        saveName = it.toString()
+                                        nameExpanded = false
+                                    }
+                                ) {
+                                    Text(it.fileName.toString())
+                                }
+                            }
+                        }
 
-                        var newAnchorCoords by remember { mutableStateOf(listOf(0.0, 0.0)) }
+                        Button(
+                            onClick = { submit = true },
+                            content = { Text("Load") }
+                        )
 
-                        var submit by remember { mutableStateOf(false) }
+                        if (submit && saveName.isBlank().not()) {
+                            if (ttrpgChecked) {
+                                party.system = load(saveName) as TTRPG
+                            } else {
+                                party = load(saveName) as Party
+                            }
+                            isSuccessDialogOpen = true
+                        }
 
+                        if (isSuccessDialogOpen) {
+                            Dialog(
+                                title = "Saved Successfully",
+                                onCloseRequest = {
+                                    isSuccessDialogOpen = false
+                                    isLoadDialogOpen = false
+                                }
+                            ) {
+                                Text("Success")
+                            }
+                        }
 
+                    }
+                }
+            }
+
+            if (notImplemented) {
+                Dialog(
+                    onCloseRequest = { notImplemented = false }
+                ) {
+                    Text("Not Implemented")
+                }
+            }
+
+            if (isNewWebDialogOpen) {
+                Dialog(
+                    title = "${party.system.name}: New Web",
+                    onCloseRequest = { isNewWebDialogOpen = false },
+                    state = rememberDialogState(
+                        position = WindowPosition(Alignment.Center),
+                        400.dp, 450.dp
+                    ),
+                    resizable = true,
+                ) {
+                    var submit by remember { mutableStateOf(false) }
+                    var webName by remember { mutableStateOf("Example Web") }
+                    var anchor0 by remember { mutableStateOf("Anchor 0") }
+                    var anchor1 by remember { mutableStateOf("Anchor 1") }
+                    var anchor2 by remember { mutableStateOf("Anchor 2") }
+                    Box(modifier = Modifier.padding(50.dp)) {
                         Column(
-                            horizontalAlignment = Alignment.CenterHorizontally,
                             verticalArrangement = Arrangement.SpaceEvenly,
                             modifier = Modifier
-                                .padding(25.dp)
+                                .padding(25.dp, 5.dp, 25.dp, 5.dp)
                         ) {
-
-                            // Web selection
-                            Box(
-                                contentAlignment = Alignment.TopCenter
-                            ) {
-                                Button(
-                                    content = {
-                                        if (webSelection == -1) {
-                                            Text("Select Web")
-                                        } else {
-                                            Text("Web: ${ttrpg.webs[webSelection].name}")
-                                        }
-                                    },
-                                    onClick = {
-                                        webExpanded = true
-                                    }
-                                )
-                                DropdownMenu(
-                                    onDismissRequest = { webExpanded = false },
-                                    expanded = webExpanded
-                                ) {
-                                    ttrpg.webs.forEachIndexed { webIndex, eachWeb ->
-                                        DropdownMenuItem(
-                                            onClick = {
-                                                webSelection = webIndex
-                                                webExpanded = false
-                                            },
-                                        ) {
-                                            Text(eachWeb.name)
-                                        }
-                                    }
-                                }
-                            }
+                            TextField(
+                                modifier = Modifier.fillMaxWidth(),
+                                value = webName,
+                                onValueChange = { webName = it },
+                                label = { Text(text = "Web Name") },
+                            )
 
                             TextField(
                                 modifier = Modifier
-                                    .align(Alignment.CenterHorizontally),
-                                value = newAnchorName,
-                                onValueChange = { newAnchorName = it },
-                                label = { Text(text = "Anchor Name:") },
+                                    .fillMaxWidth(),
+                                value = anchor0,
+                                onValueChange = { anchor0 = it },
+                                label = { Text(text = "1st Anchor") },
                             )
 
-                            // First Anchor
-                            Box(
-                                contentAlignment = Alignment.TopCenter
-                            ) {
-                                Button(
-                                    content = {
-                                        if (webSelection == -1) {
-                                            Text("Select Web First!")
-                                        } else if (anchor0Selection == -1) {
-                                            Text("First Anchor")
-                                        } else {
-                                            Text("Anchor: ${ttrpg.webs[webSelection].anchors[anchor0Selection].name}")
-                                        }
-                                    },
-                                    onClick = { anchor0Expanded = true },
-                                    modifier = Modifier
-                                        .align(Alignment.TopCenter)
-                                )
-                                if (webSelection != -1) {
-                                    DropdownMenu(
-                                        onDismissRequest = { anchor0Expanded = false },
-                                        expanded = anchor0Expanded
-                                    ) {
-                                        ttrpg.webs[webSelection].anchors.forEachIndexed { anchorIndex, eachAnchor ->
-                                            if (anchorIndex != anchor1Selection && anchorIndex != anchor2Selection) {
+                            TextField(
+                                modifier = Modifier
+                                    .fillMaxWidth(),
+                                value = anchor1,
+                                onValueChange = { anchor1 = it },
+                                label = { Text(text = "2nd Anchor") },
+                            )
 
-                                                DropdownMenuItem(
-                                                    onClick = {
-                                                        anchor0Selection = anchorIndex
-                                                        anchor0Expanded = false
-                                                    }) {
-                                                    Text(eachAnchor.name)
-                                                }
-                                            }
-                                        }
-                                        Divider(startIndent = 1.dp, thickness = 1.dp, color = Color.Black)
-                                        DropdownMenuItem(
-                                            onClick = {
-                                                anchor0Selection = -1
-                                                anchor1Selection = -1
-                                                anchor2Selection = -1
-                                            }
-                                        ) {
-                                            Text("RESET")
-                                        }
-                                    }
-                                }
-                            }
+                            TextField(
+                                modifier = Modifier
+                                    .fillMaxWidth(),
+                                value = anchor2,
+                                onValueChange = { anchor2 = it },
+                                label = { Text(text = "3rd Anchor") },
+                            )
 
-                            Box(
-                                contentAlignment = Alignment.TopCenter
-                            ) {
-                                Column(
-                                    horizontalAlignment = Alignment.CenterHorizontally,
-                                    verticalArrangement = Arrangement.SpaceEvenly,
-                                    modifier = Modifier
-                                        .padding(25.dp, 0.dp)
-                                        .fillMaxWidth()
-                                ) {
-                                    var advanced by remember { mutableStateOf(false) }
-                                    Row(
-                                        modifier = Modifier
-                                            .padding(0.dp, 0.dp, 0.dp, 10.dp)
-                                    ) {
-                                        Text(
-                                            "Advanced:",
-                                            modifier = Modifier.padding(0.dp, 15.dp, 5.dp, 0.dp)
-                                        )
-                                        Switch(
-                                            checked = advanced,
-                                            onCheckedChange = {
-                                                advanced = advanced.not()
-                                            }
-                                        )
-                                    }
-                                    Box(
-                                        contentAlignment = Alignment.TopCenter,
-                                        modifier = Modifier.padding(0.dp, 0.dp, 0.dp, 10.dp)
-                                    ) {
-
-                                        if (advanced.not()) {
-                                            Text("Difference: ${(anchor0Difference).toInt()}")
-                                            Slider(
-                                                valueRange = 1f..1999f,
-                                                value = anchor0Difference.toFloat(),
-                                                onValueChange = { anchor0Difference = it.toDouble() },
-                                                modifier = Modifier
-                                                    .fillMaxWidth()
-                                                    .padding(25.dp, 10.dp)
-                                            )
-                                        } else {
-                                            Box(
-                                                contentAlignment = Alignment.TopCenter
-                                            ) {
-                                                TextField(
-                                                    value = (anchor0Difference).toInt().toString(),
-                                                    onValueChange = {
-                                                        anchor0Difference = if (it.matches(Regex("^[0-9]+\$"))) {
-                                                            it.toDouble()
-                                                        } else {
-                                                            0.5
-                                                        }
-                                                    },
-                                                    label = { Text(text = "Anchor Name:") },
-                                                )
-                                            }
-                                        }
-
-
-                                    }
-
-                                }
-                            }
-
-                            // Second anchor
-                            Box(
-                                contentAlignment = Alignment.TopCenter
-                            ) {
-                                Button(
-                                    content = {
-                                        if (webSelection == -1) {
-                                            Text("Select Web First!")
-                                        } else if (anchor0Selection == -1) {
-                                            Text("Select first anchor first")
-                                        } else if (anchor1Selection == -1) {
-                                            Text("Second anchor")
-                                        } else {
-                                            Text("Anchor: ${ttrpg.webs[webSelection].anchors[anchor1Selection].name}")
-                                        }
-                                    },
-                                    onClick = { anchor1Expanded = true },
-                                    modifier = Modifier
-                                        .align(Alignment.TopCenter)
-                                )
-                                if ((webSelection != -1) && (anchor0Selection != -1)) {
-                                    DropdownMenu(
-                                        onDismissRequest = { anchor1Expanded = false },
-                                        expanded = anchor1Expanded
-                                    ) {
-                                        ttrpg.webs[webSelection].anchors.forEachIndexed { anchorIndex, eachAnchor ->
-                                            if (anchorIndex != anchor0Selection && anchorIndex != anchor2Selection) {
-                                                DropdownMenuItem(
-                                                    onClick = {
-                                                        anchor1Selection = anchorIndex
-                                                        anchor1Expanded = false
-                                                    }) {
-                                                    Text(eachAnchor.name)
-                                                }
-                                            }
-                                        }
-                                        Divider(startIndent = 1.dp, thickness = 1.dp, color = Color.Black)
-                                        DropdownMenuItem(
-                                            onClick = {
-                                                anchor1Selection = -1
-                                                anchor2Selection = -1
-                                            }
-                                        ) {
-                                            Text("RESET")
-                                        }
-                                    }
-                                }
-                            }
-
-                            Box(
-                                contentAlignment = Alignment.TopCenter
-                            ) {
-                                Column(
-                                    horizontalAlignment = Alignment.CenterHorizontally,
-                                    verticalArrangement = Arrangement.SpaceEvenly,
-                                    modifier = Modifier
-                                        .padding(25.dp, 0.dp)
-                                        .fillMaxWidth()
-                                ) {
-                                    var advanced by remember { mutableStateOf(false) }
-                                    Row(
-                                        modifier = Modifier
-                                            .padding(0.dp, 0.dp, 0.dp, 10.dp)
-                                    ) {
-                                        Text(
-                                            "Advanced:",
-                                            modifier = Modifier.padding(0.dp, 15.dp, 5.dp, 0.dp)
-                                        )
-                                        Switch(
-                                            checked = advanced,
-                                            onCheckedChange = {
-                                                advanced = advanced.not()
-                                            }
-                                        )
-                                    }
-                                    Box(
-                                        contentAlignment = Alignment.TopCenter,
-                                        modifier = Modifier.padding(0.dp, 0.dp, 0.dp, 10.dp)
-                                    ) {
-                                        if (anchor1Selection != -1) {
-                                            anchor1MinDiff = abs(
-                                                dist(
-                                                    ttrpg.webs[webSelection].anchors[anchor0Selection].x,
-                                                    ttrpg.webs[webSelection].anchors[anchor0Selection].y,
-                                                    ttrpg.webs[webSelection].anchors[anchor1Selection].x,
-                                                    ttrpg.webs[webSelection].anchors[anchor1Selection].y
-                                                ) - (anchor0Difference)
-                                            )
-                                            anchor1MaxDiff = abs(
-                                                dist(
-                                                    ttrpg.webs[webSelection].anchors[anchor0Selection].x,
-                                                    ttrpg.webs[webSelection].anchors[anchor0Selection].y,
-                                                    ttrpg.webs[webSelection].anchors[anchor1Selection].x,
-                                                    ttrpg.webs[webSelection].anchors[anchor1Selection].y
-                                                ) + (anchor0Difference)
-                                            )
-
-
-                                        }
-
-                                        if (advanced.not()) {
-                                            Text("Difference: ${anchor1Difference.toInt()}")
-                                            Slider(
-                                                value = anchor1Difference.toFloat(),
-                                                valueRange = anchor1MinDiff.toFloat()..anchor1MaxDiff.toFloat(),
-                                                onValueChange = { anchor1Difference = it.toDouble() },
-                                                modifier = Modifier
-                                                    .fillMaxWidth()
-                                                    .padding(25.dp, 10.dp)
-                                            )
-                                        } else {
-                                            Box(
-                                                contentAlignment = Alignment.TopCenter
-                                            ) {
-                                                TextField(
-                                                    value = anchor1Difference.toInt()
-                                                        .toString(),
-                                                    onValueChange = {
-                                                        anchor0Difference = if (it.matches(Regex("^[0-9]+\$"))) {
-                                                            it.toDouble()
-                                                        } else {
-                                                            0.5
-                                                        }
-                                                    },
-                                                    label = { Text(text = "Anchor Name:") },
-                                                )
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-
-                            // third Anchor
-
-                            Box(
-                                contentAlignment = Alignment.TopCenter,
-                                modifier = Modifier.padding(0.dp, 0.dp, 0.dp, 10.dp)
-                            ) {
-                                Button(
-                                    content = {
-                                        if (webSelection == -1) {
-                                            Text("Select Web First!")
-                                        } else if (anchor0Selection == -1) {
-                                            Text("Select first anchor first")
-                                        } else if (anchor1Selection == -1) {
-                                            Text("Select second anchor first")
-                                        } else if (anchor2Selection == -1) {
-                                            Text("Third Anchor")
-                                        } else {
-                                            Text("Anchor: ${ttrpg.webs[webSelection].anchors[anchor2Selection].name}")
-                                        }
-                                    },
-                                    onClick = { anchor2Expanded = true },
-                                    modifier = Modifier
-                                        .align(Alignment.TopCenter)
-                                )
-                                if (webSelection != -1 && anchor0Selection != -1 && anchor1Selection != -1) {
-                                    DropdownMenu(
-                                        onDismissRequest = { anchor2Expanded = false },
-                                        expanded = anchor2Expanded
-                                    ) {
-                                        ttrpg.webs[webSelection].anchors.forEachIndexed { anchorIndex, eachAnchor ->
-                                            if ((anchor0Selection != anchorIndex) && (anchor1Selection != anchorIndex)) {
-                                                DropdownMenuItem(
-                                                    onClick = {
-                                                        anchor2Selection = anchorIndex
-                                                        anchor2Expanded = false
-                                                    }) {
-                                                    Text(eachAnchor.name)
-                                                }
-                                            }
-                                        }
-                                        Divider(startIndent = 1.dp, thickness = 1.dp, color = Color.Black)
-                                        DropdownMenuItem(
-                                            onClick = {
-                                                anchor2Selection = -1
-                                            }
-                                        ) {
-                                            Text("RESET")
-                                        }
-                                    }
-                                }
-                            }
-                            Box {
-                                Button(
-                                    content = {
-                                        if (webSelection == -1) {
-                                            Text("Select Web First!")
-                                        } else if (anchor0Selection == -1) {
-                                            Text("Select first anchor first")
-                                        } else if (anchor1Selection == -1) {
-                                            Text("Select second anchor first")
-                                        } else if (anchor2Selection == -1) {
-                                            Text("Select third anchor first")
-                                        } else if (optionSelected == -1) {
-                                            Text("Difference")
-                                        } else {
-                                            Text("Difference:")
-                                        }
-                                    },
-                                    onClick = { optionExpanded = true },
-                                    modifier = Modifier
-                                        .align(Alignment.TopCenter)
-                                )
-
-                                if (anchor2Selection != -1) {
-                                    Column(
-                                        verticalArrangement = Arrangement.SpaceEvenly,
-                                    ) {
-                                        DropdownMenu(
-                                            onDismissRequest = { optionExpanded = false },
-                                            expanded = optionExpanded
-                                        ) {
-                                            DropdownMenuItem(
-                                                onClick = {
-                                                    optionSelected = 0
-                                                    optionExpanded = false
-                                                }
-                                            ) {
-                                                Text("smallest difference")
-                                            }
-                                            DropdownMenuItem(
-                                                onClick = {
-                                                    optionSelected = 1
-                                                    optionExpanded = false
-                                                }
-                                            ) {
-                                                Text("largest difference")
-                                            }
-                                            if (optionSelected != -1) {
-                                                newAnchorCoords = intersect(
-                                                    ttrpg.webs[webSelection].anchors[anchor0Selection].x,
-                                                    ttrpg.webs[webSelection].anchors[anchor0Selection].y,
-                                                    anchor0Difference,
-                                                    ttrpg.webs[webSelection].anchors[anchor1Selection].x,
-                                                    ttrpg.webs[webSelection].anchors[anchor1Selection].y,
-                                                    anchor1Difference,
-                                                    ttrpg.webs[webSelection].anchors[anchor2Selection].x,
-                                                    ttrpg.webs[webSelection].anchors[anchor2Selection].y
-                                                )[optionSelected]
-                                            }
-                                        }
-                                    }
-                                }
-                            }
                             Button(
-                                content = { Text("Create Anchor!") },
+                                content = { Text("Create Web!") },
                                 onClick = { submit = true },
                                 modifier = Modifier
                                     .align(Alignment.CenterHorizontally)
                             )
 
                             if (submit) {
-                                ttrpg.webs[webSelection].anchors.add(
-                                    Anchor(
-                                        newAnchorName,
-                                        newAnchorCoords[0],
-                                        newAnchorCoords[1]
-                                    )
-                                )
-                                isNewAnchorDialogOpen = false
+                                isNewWebDialogOpen = false
+                                party.system.webs.add(Web(webName, anchor0, anchor1, anchor2))
                             }
 
                         }
                     }
                 }
+            }
 
-                if (isNewTTRPGDialogOpen) {
-                    Dialog(
-                        title = "New System",
-                        onCloseRequest = { isNewTTRPGDialogOpen = false },
-                        state = rememberDialogState(position = WindowPosition(Alignment.Center))
+            if (isNewAnchorDialogOpen) {
+                Dialog(
+                    title = "${party.system.name}: New Anchor",
+                    onCloseRequest = { isNewAnchorDialogOpen = false },
+                    state = rememberDialogState(
+                        position = WindowPosition(Alignment.Center),
+                        600.dp, 700.dp
+                    ),
+                    resizable = true,
+                ) {
+                    var newAnchorName by remember { mutableStateOf("Example Anchor") }
+
+                    var webExpanded by remember { mutableStateOf(false) }
+                    var webSelection by remember { mutableStateOf(-1) }
+
+                    var anchor0Selection by remember { mutableStateOf(-1) }
+                    var anchor0Difference by remember { mutableStateOf(1000.0) }
+                    var anchor0Expanded by remember { mutableStateOf(false) }
+
+                    var anchor1Selection by remember { mutableStateOf(-1) }
+                    var anchor1Difference by remember { mutableStateOf(1000.0) }
+                    var anchor1Expanded by remember { mutableStateOf(false) }
+                    var anchor1MaxDiff by remember { mutableStateOf(1999.0) }
+                    var anchor1MinDiff by remember { mutableStateOf(1.0) }
+
+                    var anchor2Selection by remember { mutableStateOf(-1) }
+                    var anchor2Expanded by remember { mutableStateOf(false) }
+
+                    var optionSelected by remember { mutableStateOf(-1) }
+                    var optionExpanded by remember { mutableStateOf(false) }
+                    // var intersects by remember { mutableStateOf( mutableListOf( listOf(0.0,0.0)) )}
+                    // var options by remember { mutableStateOf(mutableListOf(0.0,0.0)) }
+
+                    var newAnchorCoords by remember { mutableStateOf(listOf(0.0, 0.0)) }
+
+                    var submit by remember { mutableStateOf(false) }
+
+
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.SpaceEvenly,
+                        modifier = Modifier
+                            .padding(25.dp)
                     ) {
-                        var load by remember { mutableStateOf(false) }
-                        Column(
-                            modifier = Modifier
-                                .padding(50.dp),
-                            verticalArrangement = Arrangement.SpaceEvenly
+
+                        // Web selection
+                        Box(
+                            contentAlignment = Alignment.TopCenter
                         ) {
-                            TextField(
-                                modifier = Modifier.fillMaxWidth(),
-                                value = systemName,
-                                onValueChange = { systemName = it },
-                                label = { Text(text = "System Name") },
-                            )
-
-                            TextField(
-                                modifier = Modifier
-                                    .fillMaxWidth(),
-                                value = authorName,
-                                onValueChange = { authorName = it },
-                                label = { Text(text = "Author") },
-                            )
-
                             Button(
-                                content = { Text("Create System!") },
-                                onClick = { load = true },
+                                content = {
+                                    if (webSelection == -1) {
+                                        Text("Select Web")
+                                    } else {
+                                        Text("Web: ${party.system.webs[webSelection].name}")
+                                    }
+                                },
+                                onClick = {
+                                    webExpanded = true
+                                }
+                            )
+                            DropdownMenu(
+                                onDismissRequest = { webExpanded = false },
+                                expanded = webExpanded
+                            ) {
+                                party.system.webs.forEachIndexed { webIndex, eachWeb ->
+                                    DropdownMenuItem(
+                                        onClick = {
+                                            webSelection = webIndex
+                                            webExpanded = false
+                                        },
+                                    ) {
+                                        Text(eachWeb.name)
+                                    }
+                                }
+                            }
+                        }
+
+                        TextField(
+                            modifier = Modifier
+                                .align(Alignment.CenterHorizontally),
+                            value = newAnchorName,
+                            onValueChange = { newAnchorName = it },
+                            label = { Text(text = "Anchor Name:") },
+                        )
+
+                        // First Anchor
+                        Box(
+                            contentAlignment = Alignment.TopCenter
+                        ) {
+                            Button(
+                                content = {
+                                    if (webSelection == -1) {
+                                        Text("Select Web First!")
+                                    } else if (anchor0Selection == -1) {
+                                        Text("First Anchor")
+                                    } else {
+                                        Text("Anchor: ${party.system.webs[webSelection].anchors[anchor0Selection].name}")
+                                    }
+                                },
+                                onClick = { anchor0Expanded = true },
                                 modifier = Modifier
-                                    .align(Alignment.CenterHorizontally)
+                                    .align(Alignment.TopCenter)
+                            )
+                            if (webSelection != -1) {
+                                DropdownMenu(
+                                    onDismissRequest = { anchor0Expanded = false },
+                                    expanded = anchor0Expanded
+                                ) {
+                                    party.system.webs[webSelection].anchors.forEachIndexed { anchorIndex, eachAnchor ->
+                                        if (anchorIndex != anchor1Selection && anchorIndex != anchor2Selection) {
+
+                                            DropdownMenuItem(
+                                                onClick = {
+                                                    anchor0Selection = anchorIndex
+                                                    anchor0Expanded = false
+                                                }) {
+                                                Text(eachAnchor.name)
+                                            }
+                                        }
+                                    }
+                                    Divider(startIndent = 1.dp, thickness = 1.dp, color = Color.Black)
+                                    DropdownMenuItem(
+                                        onClick = {
+                                            anchor0Selection = -1
+                                            anchor1Selection = -1
+                                            anchor2Selection = -1
+                                        }
+                                    ) {
+                                        Text("RESET")
+                                    }
+                                }
+                            }
+                        }
+
+                        Box(
+                            contentAlignment = Alignment.TopCenter
+                        ) {
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.SpaceEvenly,
+                                modifier = Modifier
+                                    .padding(25.dp, 0.dp)
+                                    .fillMaxWidth()
+                            ) {
+                                var advanced by remember { mutableStateOf(false) }
+                                Row(
+                                    modifier = Modifier
+                                        .padding(0.dp, 0.dp, 0.dp, 10.dp)
+                                ) {
+                                    Text(
+                                        "Advanced:",
+                                        modifier = Modifier.padding(0.dp, 15.dp, 5.dp, 0.dp)
+                                    )
+                                    Switch(
+                                        checked = advanced,
+                                        onCheckedChange = {
+                                            advanced = advanced.not()
+                                        }
+                                    )
+                                }
+                                Box(
+                                    contentAlignment = Alignment.TopCenter,
+                                    modifier = Modifier.padding(0.dp, 0.dp, 0.dp, 10.dp)
+                                ) {
+
+                                    if (advanced.not()) {
+                                        Text("Difference: ${(anchor0Difference).toInt()}")
+                                        Slider(
+                                            valueRange = 1f..1999f,
+                                            value = anchor0Difference.toFloat(),
+                                            onValueChange = { anchor0Difference = it.toDouble() },
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(25.dp, 10.dp)
+                                        )
+                                    } else {
+                                        Box(
+                                            contentAlignment = Alignment.TopCenter
+                                        ) {
+                                            TextField(
+                                                value = (anchor0Difference).toInt().toString(),
+                                                onValueChange = {
+                                                    anchor0Difference = if (it.matches(Regex("^[0-9]+\$"))) {
+                                                        it.toDouble()
+                                                    } else {
+                                                        0.5
+                                                    }
+                                                },
+                                                label = { Text(text = "Anchor Name:") },
+                                            )
+                                        }
+                                    }
+
+
+                                }
+
+                            }
+                        }
+
+                        // Second anchor
+                        Box(
+                            contentAlignment = Alignment.TopCenter
+                        ) {
+                            Button(
+                                content = {
+                                    if (webSelection == -1) {
+                                        Text("Select Web First!")
+                                    } else if (anchor0Selection == -1) {
+                                        Text("Select first anchor first")
+                                    } else if (anchor1Selection == -1) {
+                                        Text("Second anchor")
+                                    } else {
+                                        Text("Anchor: ${party.system.webs[webSelection].anchors[anchor1Selection].name}")
+                                    }
+                                },
+                                onClick = { anchor1Expanded = true },
+                                modifier = Modifier
+                                    .align(Alignment.TopCenter)
+                            )
+                            if ((webSelection != -1) && (anchor0Selection != -1)) {
+                                DropdownMenu(
+                                    onDismissRequest = { anchor1Expanded = false },
+                                    expanded = anchor1Expanded
+                                ) {
+                                    party.system.webs[webSelection].anchors.forEachIndexed { anchorIndex, eachAnchor ->
+                                        if (anchorIndex != anchor0Selection && anchorIndex != anchor2Selection) {
+                                            DropdownMenuItem(
+                                                onClick = {
+                                                    anchor1Selection = anchorIndex
+                                                    anchor1Expanded = false
+                                                }) {
+                                                Text(eachAnchor.name)
+                                            }
+                                        }
+                                    }
+                                    Divider(startIndent = 1.dp, thickness = 1.dp, color = Color.Black)
+                                    DropdownMenuItem(
+                                        onClick = {
+                                            anchor1Selection = -1
+                                            anchor2Selection = -1
+                                        }
+                                    ) {
+                                        Text("RESET")
+                                    }
+                                }
+                            }
+                        }
+
+                        Box(
+                            contentAlignment = Alignment.TopCenter
+                        ) {
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.SpaceEvenly,
+                                modifier = Modifier
+                                    .padding(25.dp, 0.dp)
+                                    .fillMaxWidth()
+                            ) {
+                                var advanced by remember { mutableStateOf(false) }
+                                Row(
+                                    modifier = Modifier
+                                        .padding(0.dp, 0.dp, 0.dp, 10.dp)
+                                ) {
+                                    Text(
+                                        "Advanced:",
+                                        modifier = Modifier.padding(0.dp, 15.dp, 5.dp, 0.dp)
+                                    )
+                                    Switch(
+                                        checked = advanced,
+                                        onCheckedChange = {
+                                            advanced = advanced.not()
+                                        }
+                                    )
+                                }
+                                Box(
+                                    contentAlignment = Alignment.TopCenter,
+                                    modifier = Modifier.padding(0.dp, 0.dp, 0.dp, 10.dp)
+                                ) {
+                                    if (anchor1Selection != -1) {
+                                        anchor1MinDiff = abs(
+                                            dist(
+                                                party.system.webs[webSelection].anchors[anchor0Selection].x,
+                                                party.system.webs[webSelection].anchors[anchor0Selection].y,
+                                                party.system.webs[webSelection].anchors[anchor1Selection].x,
+                                                party.system.webs[webSelection].anchors[anchor1Selection].y
+                                            ) - (anchor0Difference)
+                                        )
+                                        anchor1MaxDiff = abs(
+                                            dist(
+                                                party.system.webs[webSelection].anchors[anchor0Selection].x,
+                                                party.system.webs[webSelection].anchors[anchor0Selection].y,
+                                                party.system.webs[webSelection].anchors[anchor1Selection].x,
+                                                party.system.webs[webSelection].anchors[anchor1Selection].y
+                                            ) + (anchor0Difference)
+                                        )
+
+
+                                    }
+
+                                    if (advanced.not()) {
+                                        Text("Difference: ${anchor1Difference.toInt()}")
+                                        Slider(
+                                            value = anchor1Difference.toFloat(),
+                                            valueRange = anchor1MinDiff.toFloat()..anchor1MaxDiff.toFloat(),
+                                            onValueChange = { anchor1Difference = it.toDouble() },
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(25.dp, 10.dp)
+                                        )
+                                    } else {
+                                        Box(
+                                            contentAlignment = Alignment.TopCenter
+                                        ) {
+                                            TextField(
+                                                value = anchor1Difference.toInt()
+                                                    .toString(),
+                                                onValueChange = {
+                                                    anchor0Difference = if (it.matches(Regex("^[0-9]+\$"))) {
+                                                        it.toDouble()
+                                                    } else {
+                                                        0.5
+                                                    }
+                                                },
+                                                label = { Text(text = "Anchor Name:") },
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        // third Anchor
+
+                        Box(
+                            contentAlignment = Alignment.TopCenter,
+                            modifier = Modifier.padding(0.dp, 0.dp, 0.dp, 10.dp)
+                        ) {
+                            Button(
+                                content = {
+                                    if (webSelection == -1) {
+                                        Text("Select Web First!")
+                                    } else if (anchor0Selection == -1) {
+                                        Text("Select first anchor first")
+                                    } else if (anchor1Selection == -1) {
+                                        Text("Select second anchor first")
+                                    } else if (anchor2Selection == -1) {
+                                        Text("Third Anchor")
+                                    } else {
+                                        Text("Anchor: ${party.system.webs[webSelection].anchors[anchor2Selection].name}")
+                                    }
+                                },
+                                onClick = { anchor2Expanded = true },
+                                modifier = Modifier
+                                    .align(Alignment.TopCenter)
+                            )
+                            if (webSelection != -1 && anchor0Selection != -1 && anchor1Selection != -1) {
+                                DropdownMenu(
+                                    onDismissRequest = { anchor2Expanded = false },
+                                    expanded = anchor2Expanded
+                                ) {
+                                    party.system.webs[webSelection].anchors.forEachIndexed { anchorIndex, eachAnchor ->
+                                        if ((anchor0Selection != anchorIndex) && (anchor1Selection != anchorIndex)) {
+                                            DropdownMenuItem(
+                                                onClick = {
+                                                    anchor2Selection = anchorIndex
+                                                    anchor2Expanded = false
+                                                }) {
+                                                Text(eachAnchor.name)
+                                            }
+                                        }
+                                    }
+                                    Divider(startIndent = 1.dp, thickness = 1.dp, color = Color.Black)
+                                    DropdownMenuItem(
+                                        onClick = {
+                                            anchor2Selection = -1
+                                        }
+                                    ) {
+                                        Text("RESET")
+                                    }
+                                }
+                            }
+                        }
+                        Box {
+                            Button(
+                                content = {
+                                    if (webSelection == -1) {
+                                        Text("Select Web First!")
+                                    } else if (anchor0Selection == -1) {
+                                        Text("Select first anchor first")
+                                    } else if (anchor1Selection == -1) {
+                                        Text("Select second anchor first")
+                                    } else if (anchor2Selection == -1) {
+                                        Text("Select third anchor first")
+                                    } else if (optionSelected == -1) {
+                                        Text("Difference")
+                                    } else {
+                                        Text("Difference:")
+                                    }
+                                },
+                                onClick = { optionExpanded = true },
+                                modifier = Modifier
+                                    .align(Alignment.TopCenter)
                             )
 
-                            if (load) {
-                                isNewTTRPGDialogOpen = false
-                                isTTRPGLoaded = true
-                                winTitle = "Forged: $systemName"
+                            if (anchor2Selection != -1) {
+                                Column(
+                                    verticalArrangement = Arrangement.SpaceEvenly,
+                                ) {
+                                    DropdownMenu(
+                                        onDismissRequest = { optionExpanded = false },
+                                        expanded = optionExpanded
+                                    ) {
+                                        DropdownMenuItem(
+                                            onClick = {
+                                                optionSelected = 0
+                                                optionExpanded = false
+                                            }
+                                        ) {
+                                            Text("smallest difference")
+                                        }
+                                        DropdownMenuItem(
+                                            onClick = {
+                                                optionSelected = 1
+                                                optionExpanded = false
+                                            }
+                                        ) {
+                                            Text("largest difference")
+                                        }
+                                        if (optionSelected != -1) {
+                                            newAnchorCoords = intersect(
+                                                party.system.webs[webSelection].anchors[anchor0Selection].x,
+                                                party.system.webs[webSelection].anchors[anchor0Selection].y,
+                                                anchor0Difference,
+                                                party.system.webs[webSelection].anchors[anchor1Selection].x,
+                                                party.system.webs[webSelection].anchors[anchor1Selection].y,
+                                                anchor1Difference,
+                                                party.system.webs[webSelection].anchors[anchor2Selection].x,
+                                                party.system.webs[webSelection].anchors[anchor2Selection].y
+                                            )[optionSelected]
+                                        }
+                                    }
+                                }
                             }
-
                         }
+                        Button(
+                            content = { Text("Create Anchor!") },
+                            onClick = { submit = true },
+                            modifier = Modifier
+                                .align(Alignment.CenterHorizontally)
+                        )
+
+                        if (submit) {
+                            party.system.webs[webSelection].anchors.add(
+                                Anchor(
+                                    newAnchorName,
+                                    newAnchorCoords[0],
+                                    newAnchorCoords[1]
+                                )
+                            )
+                            isNewAnchorDialogOpen = false
+                        }
+
+                    }
+                }
+            }
+
+            if (isNewTTRPGDialogOpen) {
+                Dialog(
+                    title = "New System",
+                    onCloseRequest = { isNewTTRPGDialogOpen = false },
+                    state = rememberDialogState(position = WindowPosition(Alignment.Center))
+                ) {
+                    var load by remember { mutableStateOf(false) }
+                    Column(
+                        modifier = Modifier
+                            .padding(50.dp),
+                        verticalArrangement = Arrangement.SpaceEvenly
+                    ) {
+                        TextField(
+                            modifier = Modifier.fillMaxWidth(),
+                            value = systemName,
+                            onValueChange = { systemName = it },
+                            label = { Text(text = "System Name") },
+                        )
+
+                        TextField(
+                            modifier = Modifier
+                                .fillMaxWidth(),
+                            value = authorName,
+                            onValueChange = { authorName = it },
+                            label = { Text(text = "Author") },
+                        )
+
+                        Button(
+                            content = { Text("Create System!") },
+                            onClick = { load = true },
+                            modifier = Modifier
+                                .align(Alignment.CenterHorizontally)
+                        )
+
+                        if (load) {
+                            isNewTTRPGDialogOpen = false
+                            isTTRPGLoaded = true
+                            winTitle = "Forged: $systemName"
+                        }
+
                     }
                 }
             }
@@ -760,7 +914,7 @@ fun main() = application {
                     .fillMaxWidth()
             ) {
                 if (isTTRPGLoaded) {
-                    ttrpg = remember { TTRPG(systemName, authorName) }
+                    party.system = remember { TTRPG(systemName, authorName) }
                     // Show Anchors in web
 
                     // if (ttrpg.webs.size != 0 and ttrpg.webs.size) {
@@ -771,8 +925,8 @@ fun main() = application {
                             .background(color = Color(180, 180, 180))
                             .width(250.dp)
                     ) {
-                        Text("${ttrpg.name}:")
-                        for ((webIndex, eachWeb) in ttrpg.webs.withIndex()) {
+                        Text("${party.system.name}:")
+                        for ((webIndex, eachWeb) in party.system.webs.withIndex()) {
                             Text(" $webIndex: ${eachWeb.name}")
                             for ((anchorIndex, eachAnchor) in eachWeb.anchors.withIndex()) {
                                 Text(" - $anchorIndex: ${eachAnchor.name} (${eachAnchor.x.toInt()}, ${eachAnchor.y.toInt()})")
@@ -781,7 +935,7 @@ fun main() = application {
                     }
                 }
 
-                if (isGroupLoaded) {
+                if (isPartyLoaded) {
                     Column(
                         horizontalAlignment = Alignment.End,
                         modifier = Modifier
@@ -789,7 +943,7 @@ fun main() = application {
                             .background(color = Color(180, 180, 180))
                             .width(250.dp)
                     ) {
-                        Text("Groups")
+                        Text("Party")
                     }
                 }
             }
@@ -854,9 +1008,41 @@ class Circle(
     }
 }
 
+fun save(toSave: Any, saveName: String): Boolean {
+    val gson = Gson()
+    val gsonPretty = GsonBuilder().setPrettyPrinting().create()
+    val jsonSaveListPretty: String = gsonPretty.toJson(toSave)
+    File("$saveName.json").writeText(jsonSaveListPretty)
+    return true
+}
+
+fun load(saveName: String): Any {
+    val inputStream: InputStream = File(saveName).inputStream()
+    val loadString = inputStream.bufferedReader().use { it.readText() }
+    val gson = Gson()
+    val result: JsonObject = Gson().fromJson(loadString, JsonObject::class.java)
+    // var type = result.ge
+    if (result.get("type") != null) {
+        return if (result.get("type").asString == "System") {
+            Gson().fromJson(loadString, TTRPG::class.java)
+        } else {
+            Gson().fromJson(loadString, Party::class.java)
+        }
+    } else {
+        return ""
+    }
+}
+
 
 fun dist(x0: Double, y0: Double, x1: Double, y1: Double): Double {
     return (sqrt((x0 - x1).pow(2) + (y0 - y1).pow(2)))
+}
+
+class Party(
+    var name: String,
+    var system: TTRPG
+) {
+    val type = "Party"
 }
 
 class Anchor(
@@ -908,6 +1094,7 @@ class TTRPG(
     var webs: SnapshotStateList<Web> = mutableStateListOf(),
     val created: Long = System.currentTimeMillis()
 ) {
+    val type = "System"
 
     override fun toString(): String {
         val webOut = mutableListOf<Web>()
