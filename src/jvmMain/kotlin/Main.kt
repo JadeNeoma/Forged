@@ -33,7 +33,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.Button
-import androidx.compose.material.Checkbox
 import androidx.compose.material.Divider
 import androidx.compose.material.DropdownMenu
 import androidx.compose.material.DropdownMenuItem
@@ -85,7 +84,8 @@ fun main() = application {
         position = WindowPosition(Alignment.CenterStart),
         height = (DISPLAYHEIGHT - 50).dp, width = (DISPLAYWIDTH - 50).dp
     )
-    var party by remember { mutableStateOf(Party("", TTRPG("", ""))) }
+    var ttrpg by remember { mutableStateOf(TTRPG("", "")) }
+    var party by remember { mutableStateOf(Party("")) }
     Window(
         title = winTitle,
         onCloseRequest = ::exitApplication,
@@ -122,7 +122,7 @@ fun main() = application {
                 if (isTTRPGLoaded) {
                     Menu("Edit") {
                         Item("Create Web", onClick = { isNewWebDialogOpen = true })
-                        if (party.system.webs.size != 0) {
+                        if (ttrpg.webs.size != 0) {
                             Item("Create Anchor", onClick = { isNewAnchorDialogOpen = true })
                         }
                     }
@@ -169,16 +169,22 @@ fun main() = application {
                     state = rememberDialogState(position = WindowPosition(Alignment.Center))
                 ) {
                     var isSuccessDialogOpen by remember { mutableStateOf(false) }
-                    var ttrpgChecked by remember { mutableStateOf(true) }
+                    var ttrpgChecked by remember { mutableStateOf(false) }
                     var saveName by remember { mutableStateOf("") }
                     var submit by remember { mutableStateOf(false) }
                     Column {
-                        Row {
-                            Text("TTRPG ONLY:")
-                            Checkbox(
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                        ) {
+                            Text("Save Party", modifier = Modifier.padding(top = 15.dp))
+                            Switch(
                                 checked = ttrpgChecked,
-                                onCheckedChange = { ttrpgChecked = it }
+                                onCheckedChange = {
+                                    ttrpgChecked = it
+                                }
                             )
+                            Text("Save System", modifier = Modifier.padding(top = 15.dp))
                         }
 
                         TextField(
@@ -194,7 +200,7 @@ fun main() = application {
 
                         if (submit && saveName.isBlank().not()) {
                             isSuccessDialogOpen = if (ttrpgChecked) {
-                                save(party.system, "src/jvmMain/resources/Saves/Systems/$saveName")
+                                save(ttrpg, "src/jvmMain/resources/Saves/Systems/$saveName")
                             } else {
                                 save(party, "src/jvmMain/resources/Saves/Parties/$saveName")
                             }
@@ -222,22 +228,25 @@ fun main() = application {
                     onCloseRequest = { isLoadDialogOpen = false },
                     state = rememberDialogState(position = WindowPosition(Alignment.Center))
                 ) {
-                    var isSuccessDialogOpen by remember { mutableStateOf(false) }
                     var ttrpgChecked by remember { mutableStateOf(false) }
                     var nameExpanded by remember { mutableStateOf(false) }
                     var saveName by remember { mutableStateOf("") }
                     var saveList by remember { mutableStateOf(mutableListOf<Path>()) }
                     var submit by remember { mutableStateOf(false) }
                     Column {
-                        Row {
-                            Text("TTRPG ONLY:")
-                            Checkbox(
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                        ) {
+                            Text("Save Party", modifier = Modifier.padding(top = 15.dp))
+                            Switch(
                                 checked = ttrpgChecked,
                                 onCheckedChange = {
                                     ttrpgChecked = it
                                     saveName = ""
                                 }
                             )
+                            Text("Save System", modifier = Modifier.padding(top = 15.dp))
                         }
 
                         val path = if (ttrpgChecked) {
@@ -296,25 +305,14 @@ fun main() = application {
 
                         if (submit && saveName.isBlank().not()) {
                             if (ttrpgChecked) {
-                                party.system = load(saveName) as TTRPG
+                                ttrpg = remember { load(saveName) as TTRPG }
+                                print(ttrpg)
+                                isTTRPGLoaded = true
                             } else {
-                                party = load(saveName) as Party
-                            }
-                            isSuccessDialogOpen = true
-                        }
-
-                        if (isSuccessDialogOpen) {
-                            Dialog(
-                                title = "Saved Successfully",
-                                onCloseRequest = {
-                                    isSuccessDialogOpen = false
-                                    isLoadDialogOpen = false
-                                }
-                            ) {
-                                Text("Success")
+                                party = remember { load(saveName) as Party }
+                                isPartyLoaded = true
                             }
                         }
-
                     }
                 }
             }
@@ -329,7 +327,7 @@ fun main() = application {
 
             if (isNewWebDialogOpen) {
                 Dialog(
-                    title = "${party.system.name}: New Web",
+                    title = "${ttrpg.name}: New Web",
                     onCloseRequest = { isNewWebDialogOpen = false },
                     state = rememberDialogState(
                         position = WindowPosition(Alignment.Center),
@@ -388,7 +386,7 @@ fun main() = application {
 
                             if (submit) {
                                 isNewWebDialogOpen = false
-                                party.system.webs.add(Web(webName, anchor0, anchor1, anchor2))
+                                ttrpg.webs.add(Web(webName, anchor0, anchor1, anchor2))
                             }
 
                         }
@@ -398,7 +396,7 @@ fun main() = application {
 
             if (isNewAnchorDialogOpen) {
                 Dialog(
-                    title = "${party.system.name}: New Anchor",
+                    title = "${ttrpg.name}: New Anchor",
                     onCloseRequest = { isNewAnchorDialogOpen = false },
                     state = rememberDialogState(
                         position = WindowPosition(Alignment.Center),
@@ -450,7 +448,7 @@ fun main() = application {
                                     if (webSelection == -1) {
                                         Text("Select Web")
                                     } else {
-                                        Text("Web: ${party.system.webs[webSelection].name}")
+                                        Text("Web: ${ttrpg.webs[webSelection].name}")
                                     }
                                 },
                                 onClick = {
@@ -461,7 +459,7 @@ fun main() = application {
                                 onDismissRequest = { webExpanded = false },
                                 expanded = webExpanded
                             ) {
-                                party.system.webs.forEachIndexed { webIndex, eachWeb ->
+                                ttrpg.webs.forEachIndexed { webIndex, eachWeb ->
                                     DropdownMenuItem(
                                         onClick = {
                                             webSelection = webIndex
@@ -493,7 +491,7 @@ fun main() = application {
                                     } else if (anchor0Selection == -1) {
                                         Text("First Anchor")
                                     } else {
-                                        Text("Anchor: ${party.system.webs[webSelection].anchors[anchor0Selection].name}")
+                                        Text("Anchor: ${ttrpg.webs[webSelection].anchors[anchor0Selection].name}")
                                     }
                                 },
                                 onClick = { anchor0Expanded = true },
@@ -505,7 +503,7 @@ fun main() = application {
                                     onDismissRequest = { anchor0Expanded = false },
                                     expanded = anchor0Expanded
                                 ) {
-                                    party.system.webs[webSelection].anchors.forEachIndexed { anchorIndex, eachAnchor ->
+                                    ttrpg.webs[webSelection].anchors.forEachIndexed { anchorIndex, eachAnchor ->
                                         if (anchorIndex != anchor1Selection && anchorIndex != anchor2Selection) {
 
                                             DropdownMenuItem(
@@ -609,7 +607,7 @@ fun main() = application {
                                     } else if (anchor1Selection == -1) {
                                         Text("Second anchor")
                                     } else {
-                                        Text("Anchor: ${party.system.webs[webSelection].anchors[anchor1Selection].name}")
+                                        Text("Anchor: ${ttrpg.webs[webSelection].anchors[anchor1Selection].name}")
                                     }
                                 },
                                 onClick = { anchor1Expanded = true },
@@ -621,7 +619,7 @@ fun main() = application {
                                     onDismissRequest = { anchor1Expanded = false },
                                     expanded = anchor1Expanded
                                 ) {
-                                    party.system.webs[webSelection].anchors.forEachIndexed { anchorIndex, eachAnchor ->
+                                    ttrpg.webs[webSelection].anchors.forEachIndexed { anchorIndex, eachAnchor ->
                                         if (anchorIndex != anchor0Selection && anchorIndex != anchor2Selection) {
                                             DropdownMenuItem(
                                                 onClick = {
@@ -678,18 +676,18 @@ fun main() = application {
                                     if (anchor1Selection != -1) {
                                         anchor1MinDiff = abs(
                                             dist(
-                                                party.system.webs[webSelection].anchors[anchor0Selection].x,
-                                                party.system.webs[webSelection].anchors[anchor0Selection].y,
-                                                party.system.webs[webSelection].anchors[anchor1Selection].x,
-                                                party.system.webs[webSelection].anchors[anchor1Selection].y
+                                                ttrpg.webs[webSelection].anchors[anchor0Selection].x,
+                                                ttrpg.webs[webSelection].anchors[anchor0Selection].y,
+                                                ttrpg.webs[webSelection].anchors[anchor1Selection].x,
+                                                ttrpg.webs[webSelection].anchors[anchor1Selection].y
                                             ) - (anchor0Difference)
                                         )
                                         anchor1MaxDiff = abs(
                                             dist(
-                                                party.system.webs[webSelection].anchors[anchor0Selection].x,
-                                                party.system.webs[webSelection].anchors[anchor0Selection].y,
-                                                party.system.webs[webSelection].anchors[anchor1Selection].x,
-                                                party.system.webs[webSelection].anchors[anchor1Selection].y
+                                                ttrpg.webs[webSelection].anchors[anchor0Selection].x,
+                                                ttrpg.webs[webSelection].anchors[anchor0Selection].y,
+                                                ttrpg.webs[webSelection].anchors[anchor1Selection].x,
+                                                ttrpg.webs[webSelection].anchors[anchor1Selection].y
                                             ) + (anchor0Difference)
                                         )
 
@@ -745,7 +743,7 @@ fun main() = application {
                                     } else if (anchor2Selection == -1) {
                                         Text("Third Anchor")
                                     } else {
-                                        Text("Anchor: ${party.system.webs[webSelection].anchors[anchor2Selection].name}")
+                                        Text("Anchor: ${ttrpg.webs[webSelection].anchors[anchor2Selection].name}")
                                     }
                                 },
                                 onClick = { anchor2Expanded = true },
@@ -757,7 +755,7 @@ fun main() = application {
                                     onDismissRequest = { anchor2Expanded = false },
                                     expanded = anchor2Expanded
                                 ) {
-                                    party.system.webs[webSelection].anchors.forEachIndexed { anchorIndex, eachAnchor ->
+                                    ttrpg.webs[webSelection].anchors.forEachIndexed { anchorIndex, eachAnchor ->
                                         if ((anchor0Selection != anchorIndex) && (anchor1Selection != anchorIndex)) {
                                             DropdownMenuItem(
                                                 onClick = {
@@ -827,14 +825,14 @@ fun main() = application {
                                         }
                                         if (optionSelected != -1) {
                                             newAnchorCoords = intersect(
-                                                party.system.webs[webSelection].anchors[anchor0Selection].x,
-                                                party.system.webs[webSelection].anchors[anchor0Selection].y,
+                                                ttrpg.webs[webSelection].anchors[anchor0Selection].x,
+                                                ttrpg.webs[webSelection].anchors[anchor0Selection].y,
                                                 anchor0Difference,
-                                                party.system.webs[webSelection].anchors[anchor1Selection].x,
-                                                party.system.webs[webSelection].anchors[anchor1Selection].y,
+                                                ttrpg.webs[webSelection].anchors[anchor1Selection].x,
+                                                ttrpg.webs[webSelection].anchors[anchor1Selection].y,
                                                 anchor1Difference,
-                                                party.system.webs[webSelection].anchors[anchor2Selection].x,
-                                                party.system.webs[webSelection].anchors[anchor2Selection].y
+                                                ttrpg.webs[webSelection].anchors[anchor2Selection].x,
+                                                ttrpg.webs[webSelection].anchors[anchor2Selection].y
                                             )[optionSelected]
                                         }
                                     }
@@ -849,7 +847,7 @@ fun main() = application {
                         )
 
                         if (submit) {
-                            party.system.webs[webSelection].anchors.add(
+                            ttrpg.webs[webSelection].anchors.add(
                                 Anchor(
                                     newAnchorName,
                                     newAnchorCoords[0],
@@ -899,6 +897,7 @@ fun main() = application {
 
                         if (load) {
                             isNewTTRPGDialogOpen = false
+                            ttrpg = remember { TTRPG(systemName, authorName) }
                             isTTRPGLoaded = true
                             winTitle = "Forged: $systemName"
                         }
@@ -914,7 +913,6 @@ fun main() = application {
                     .fillMaxWidth()
             ) {
                 if (isTTRPGLoaded) {
-                    party.system = remember { TTRPG(systemName, authorName) }
                     // Show Anchors in web
 
                     // if (ttrpg.webs.size != 0 and ttrpg.webs.size) {
@@ -925,8 +923,8 @@ fun main() = application {
                             .background(color = Color(180, 180, 180))
                             .width(250.dp)
                     ) {
-                        Text("${party.system.name}:")
-                        for ((webIndex, eachWeb) in party.system.webs.withIndex()) {
+                        Text("${ttrpg.name}:")
+                        for ((webIndex, eachWeb) in ttrpg.webs.withIndex()) {
                             Text(" $webIndex: ${eachWeb.name}")
                             for ((anchorIndex, eachAnchor) in eachWeb.anchors.withIndex()) {
                                 Text(" - $anchorIndex: ${eachAnchor.name} (${eachAnchor.x.toInt()}, ${eachAnchor.y.toInt()})")
@@ -1040,7 +1038,6 @@ fun dist(x0: Double, y0: Double, x1: Double, y1: Double): Double {
 
 class Party(
     var name: String,
-    var system: TTRPG
 ) {
     val type = "Party"
 }
