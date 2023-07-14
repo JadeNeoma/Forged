@@ -50,6 +50,7 @@ import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.MenuBar
@@ -93,11 +94,14 @@ fun main() = application {
     ) {
         MaterialTheme {
             var isNewTTRPGDialogOpen by remember { mutableStateOf(false) }
+            var isNewPartyDialogOpen by remember { mutableStateOf(false) }
             var isCopyrightDialogOpen by remember { mutableStateOf(false) }
             var isNewWebDialogOpen by remember { mutableStateOf(false) }
             var isNewAnchorDialogOpen by remember { mutableStateOf(false) }
+            var isNewCharacterDialogOpen by remember { mutableStateOf(false) }
             var isSaveDialogOpen by remember { mutableStateOf(false) }
             var isLoadDialogOpen by remember { mutableStateOf(false) }
+            var isSelectAnchorsDialogOpen by remember { mutableStateOf(false) }
 
             var notImplemented by remember { mutableStateOf(false) }
             var isTTRPGLoaded by remember { mutableStateOf(false) }
@@ -110,7 +114,8 @@ fun main() = application {
 
                 // Menu Bar Items
                 Menu("File") {
-                    Item("New", onClick = { isNewTTRPGDialogOpen = true })
+                    Item("New System", onClick = { isNewTTRPGDialogOpen = true })
+                    Item("New Party", onClick = { isNewPartyDialogOpen = true })
                     Item("Load", onClick = { isLoadDialogOpen = true })
                     if (isTTRPGLoaded || isPartyLoaded) {
                         Item("Save", onClick = { isSaveDialogOpen = true })
@@ -119,11 +124,16 @@ fun main() = application {
                     Item("Exit", onClick = { exitApplication() })
                 }
 
-                if (isTTRPGLoaded) {
+                if (isTTRPGLoaded || isPartyLoaded) {
                     Menu("Edit") {
-                        Item("Create Web", onClick = { isNewWebDialogOpen = true })
-                        if (ttrpg.webs.size != 0) {
-                            Item("Create Anchor", onClick = { isNewAnchorDialogOpen = true })
+                        if (isTTRPGLoaded) {
+                            Item("Create Web", onClick = { isNewWebDialogOpen = true })
+                            if (ttrpg.webs.size != 0) {
+                                Item("Create Anchor", onClick = { isNewAnchorDialogOpen = true })
+                            }
+                        }
+                        if (isPartyLoaded) {
+                            Item("Create New Character", onClick = { isNewCharacterDialogOpen = true })
                         }
                     }
                 }
@@ -141,24 +151,31 @@ fun main() = application {
                     onCloseRequest = { isCopyrightDialogOpen = false },
                     state = rememberDialogState(position = WindowPosition(Alignment.Center))
                 ) {
-                    Text(
-                        "Copyright (c) 2023 Jade Neoma\n" +
-                                "Forged is free software: you can redistribute it and/or\n" +
-                                "modify it under the terms of the GNU General Public\n" +
-                                "License as published by the Free Software Foundation,\n" +
-                                "either version 3 of the License, or (at your option) any\n" +
-                                "later version.\n" +
-                                "\n" +
-                                "Forged is distributed in the hope that it will be useful,\n" +
-                                "but WITHOUT ANY WARRANTY; without even the\n" +
-                                "implied warranty of MERCHANTABILITY or FITNESS\n" +
-                                "FOR A PARTICULAR PURPOSE. See the GNU General\n" +
-                                "Public License for more details.\n" +
-                                "\n" +
-                                "You should have received a copy of the GNU General\n" +
-                                "Public License along with Forged. If not, see\n" +
-                                "<https://www.gnu.org/licenses/>."
-                    )
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.SpaceEvenly,
+                        modifier = Modifier
+                            .padding(25.dp)
+                    ) {
+                        Text(
+                            "Copyright (c) 2023 Jade Neoma\n" +
+                                    "Forged is free software: you can redistribute it and/or\n" +
+                                    "modify it under the terms of the GNU General Public\n" +
+                                    "License as published by the Free Software Foundation,\n" +
+                                    "either version 3 of the License, or (at your option) any\n" +
+                                    "later version.\n" +
+                                    "\n" +
+                                    "Forged is distributed in the hope that it will be useful,\n" +
+                                    "but WITHOUT ANY WARRANTY; without even the\n" +
+                                    "implied warranty of MERCHANTABILITY or FITNESS\n" +
+                                    "FOR A PARTICULAR PURPOSE. See the GNU General\n" +
+                                    "Public License for more details.\n" +
+                                    "\n" +
+                                    "You should have received a copy of the GNU General\n" +
+                                    "Public License along with Forged. If not, see\n" +
+                                    "<https://www.gnu.org/licenses/>."
+                        )
+                    }
                 }
             }
 
@@ -172,7 +189,12 @@ fun main() = application {
                     var ttrpgChecked by remember { mutableStateOf(false) }
                     var saveName by remember { mutableStateOf("") }
                     var submit by remember { mutableStateOf(false) }
-                    Column {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.SpaceEvenly,
+                        modifier = Modifier
+                            .padding(25.dp)
+                    ) {
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -233,7 +255,12 @@ fun main() = application {
                     var saveName by remember { mutableStateOf("") }
                     var saveList by remember { mutableStateOf(mutableListOf<Path>()) }
                     var submit by remember { mutableStateOf(false) }
-                    Column {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.SpaceEvenly,
+                        modifier = Modifier
+                            .padding(25.dp)
+                    ) {
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -342,9 +369,10 @@ fun main() = application {
                     var anchor2 by remember { mutableStateOf("Anchor 2") }
                     Box(modifier = Modifier.padding(50.dp)) {
                         Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
                             verticalArrangement = Arrangement.SpaceEvenly,
                             modifier = Modifier
-                                .padding(25.dp, 5.dp, 25.dp, 5.dp)
+                                .padding(25.dp)
                         ) {
                             TextField(
                                 modifier = Modifier.fillMaxWidth(),
@@ -402,7 +430,7 @@ fun main() = application {
                         position = WindowPosition(Alignment.Center),
                         600.dp, 700.dp
                     ),
-                    resizable = true,
+                    resizable = true
                 ) {
                     var newAnchorName by remember { mutableStateOf("Example Anchor") }
 
@@ -861,6 +889,46 @@ fun main() = application {
                 }
             }
 
+            if (isNewCharacterDialogOpen) {
+                var newCharacterName by remember { mutableStateOf("Example Character") }
+                var submit by remember { mutableStateOf(false) }
+                Dialog(
+                    title = "New Character",
+                    onCloseRequest = { isNewCharacterDialogOpen = false },
+                    state = rememberDialogState(
+                        position = WindowPosition(Alignment.Center),
+                        600.dp, 700.dp
+                    ),
+                    resizable = true
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.SpaceEvenly,
+                        modifier = Modifier
+                            .padding(25.dp)
+                    ) {
+                        TextField(
+                            modifier = Modifier
+                                .align(Alignment.CenterHorizontally),
+                            value = newCharacterName,
+                            onValueChange = { newCharacterName = it },
+                            label = { Text(text = "Character Name:") },
+                        )
+
+                        Button(
+                            onClick = { submit = true },
+                            content = {
+                                Text("Create Character")
+                            }
+                        )
+
+                        if (submit) {
+                            party.characters.add(Character(newCharacterName))
+                        }
+                    }
+                }
+            }
+
             if (isNewTTRPGDialogOpen) {
                 Dialog(
                     title = "New System",
@@ -906,6 +974,61 @@ fun main() = application {
                 }
             }
 
+            if (isNewPartyDialogOpen) {
+                var newPartyName by remember { mutableStateOf("Example Party") }
+                var submit by remember { mutableStateOf(false) }
+                Dialog(
+                    title = "New Party",
+                    onCloseRequest = { isNewPartyDialogOpen = false },
+                    state = rememberDialogState(position = WindowPosition(Alignment.Center))
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.SpaceEvenly,
+                        modifier = Modifier
+                            .padding(25.dp)
+                    ) {
+                        TextField(
+                            modifier = Modifier
+                                .align(Alignment.CenterHorizontally),
+                            value = newPartyName,
+                            onValueChange = { newPartyName = it },
+                            label = { Text(text = "Party Name:") },
+                        )
+
+                        Button(
+                            onClick = { submit = true },
+                            content = {
+                                Text("Create Party")
+                            }
+                        )
+
+                        if (submit) {
+                            party = remember { Party(newPartyName) }
+                            isPartyLoaded = true
+                            isNewPartyDialogOpen = false
+                        }
+                    }
+                }
+            }
+
+            if (isSelectAnchorsDialogOpen) {
+                Dialog(
+                    title = "Select anchors",
+                    onCloseRequest = { isNewPartyDialogOpen = false },
+                    state = rememberDialogState(position = WindowPosition(Alignment.Center))
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.SpaceEvenly,
+                        modifier = Modifier
+                            .padding(25.dp)
+                    ) {
+
+                    }
+                }
+            }
+
             // Main App
             Row(
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -914,8 +1037,6 @@ fun main() = application {
             ) {
                 if (isTTRPGLoaded) {
                     // Show Anchors in web
-
-                    // if (ttrpg.webs.size != 0 and ttrpg.webs.size) {
                     Column(
                         horizontalAlignment = Alignment.Start,
                         modifier = Modifier
@@ -923,11 +1044,18 @@ fun main() = application {
                             .background(color = Color(180, 180, 180))
                             .width(250.dp)
                     ) {
-                        Text("${ttrpg.name}:")
-                        for ((webIndex, eachWeb) in ttrpg.webs.withIndex()) {
-                            Text(" $webIndex: ${eachWeb.name}")
-                            for ((anchorIndex, eachAnchor) in eachWeb.anchors.withIndex()) {
-                                Text(" - $anchorIndex: ${eachAnchor.name} (${eachAnchor.x.toInt()}, ${eachAnchor.y.toInt()})")
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                        ) {
+                            Column {
+                                Text("${ttrpg.name}:")
+                                for ((webIndex, eachWeb) in ttrpg.webs.withIndex()) {
+                                    Text(" $webIndex: ${eachWeb.name}")
+                                    for ((anchorIndex, eachAnchor) in eachWeb.anchors.withIndex()) {
+                                        Text(" - $anchorIndex: ${eachAnchor.name} (${eachAnchor.x.toInt()}, ${eachAnchor.y.toInt()})")
+                                    }
+                                }
                             }
                         }
                     }
@@ -935,13 +1063,39 @@ fun main() = application {
 
                 if (isPartyLoaded) {
                     Column(
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                        ) {
+                            Column {
+                                Button(
+                                    onClick = { isSelectAnchorsDialogOpen = true },
+                                    content = {
+                                        Text("Select Anchors")
+                                    }
+                                )
+                            }
+                        }
+                    }
+
+                    // Show characters in party
+                    Column(
                         horizontalAlignment = Alignment.End,
                         modifier = Modifier
                             .fillMaxHeight()
                             .background(color = Color(180, 180, 180))
                             .width(250.dp)
                     ) {
-                        Text("Party")
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                        ) {
+                            Column {
+                                Text("Party: ${party.name}", textAlign = TextAlign.Start)
+                            }
+                        }
                     }
                 }
             }
@@ -1020,14 +1174,14 @@ fun load(saveName: String): Any {
     val gson = Gson()
     val result: JsonObject = Gson().fromJson(loadString, JsonObject::class.java)
     // var type = result.ge
-    if (result.get("type") != null) {
-        return if (result.get("type").asString == "System") {
+    return if (result.get("type") != null) {
+        if (result.get("type").asString == "System") {
             Gson().fromJson(loadString, TTRPG::class.java)
         } else {
             Gson().fromJson(loadString, Party::class.java)
         }
     } else {
-        return ""
+        ""
     }
 }
 
@@ -1036,17 +1190,31 @@ fun dist(x0: Double, y0: Double, x1: Double, y1: Double): Double {
     return (sqrt((x0 - x1).pow(2) + (y0 - y1).pow(2)))
 }
 
+
+class Character(
+    var name: String,
+    var anchors: SnapshotStateList<Anchor> = mutableStateListOf()
+) {
+
+}
+
 class Party(
     var name: String,
+    var characters: SnapshotStateList<Character> = mutableStateListOf()
 ) {
     val type = "Party"
 }
 
-class Anchor(
+open class Anchor(
     var name: String,
     val x: Double,
     val y: Double,
+    var exp: Double = 0.0
 ) {
+    fun character(xp: Double = 0.0) {
+
+    }
+
     override fun toString(): String {
         return " $name: ($x, $y)\n  "
     }
